@@ -102,12 +102,6 @@ Remember to:
 5. Include relevant government schemes when applicable
 """
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}")
-])
-
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     context: Optional[str]
@@ -135,11 +129,16 @@ def chat_node(state: ChatState):
             break
     
     if last_human_msg:
-        # Retrieve context
+        # Retrieve context (will be empty since Pinecone is disabled)
         context = retrieve_context(last_human_msg)
         
-        # Create a prompt with context
-        system_msg = SystemMessage(content=system_prompt.format(context=context))
+        # Create a simple system message without complex formatting
+        if context:
+            system_content = f"You are a helpful agricultural advisory assistant for farmers in Kerala. Context: {context}"
+        else:
+            system_content = "You are a helpful agricultural advisory assistant for farmers in Kerala. Please provide practical farming advice."
+            
+        system_msg = SystemMessage(content=system_content)
         
         # Include conversation history (last 10 messages for context window)
         chat_history = messages[-10:] if len(messages) > 10 else messages
@@ -147,10 +146,13 @@ def chat_node(state: ChatState):
         # Prepare messages for the LLM
         llm_messages = [system_msg] + chat_history
         
-        # Get response
-        response = llm.invoke(llm_messages)
-        
-        return {"messages": [response], "context": context}
+        try:
+            # Get response
+            response = llm.invoke(llm_messages)
+            return {"messages": [response], "context": context}
+        except Exception as e:
+            logger.error(f"LLM invoke error: {e}")
+            return {"messages": [AIMessage(content=f"Sorry, I encountered an error: {str(e)}")]}
     
     return {"messages": [AIMessage(content="I didn't receive a message to respond to.")]}
 
@@ -302,6 +304,11 @@ def chat_endpoint(request: ChatRequest):
         all_messages.append(HumanMessage(content=f"Please respond in {request.language}."))
     
     try:
+        # Debug: print what we're sending
+        logger.info(f"Sending messages to chatbot: {len(all_messages)} messages")
+        for i, msg in enumerate(all_messages):
+            logger.info(f"Message {i}: {type(msg).__name__} - {msg.content[:100]}...")
+        
         # Invoke the chatbot with full message history
         response = chatbot.invoke({'messages': all_messages}, config=CONFIG)
         
@@ -313,6 +320,7 @@ def chat_endpoint(request: ChatRequest):
         
         return ai_messages
     except Exception as e:
+        logger.error(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents", response_model=DocumentListResponse)
@@ -452,3 +460,7 @@ def reindex_documents():
         return {"message": "All documents reindexed successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
