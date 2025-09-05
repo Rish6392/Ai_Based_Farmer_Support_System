@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Search, MessageCircle } from 'lucide-react';
+import { Upload, Search, MessageCircle, X } from 'lucide-react';
 import { Button, Card, Loading, Alert } from '../components';
 import { diseaseService } from '../services';
 import { useChat } from '../context';
@@ -28,6 +28,18 @@ const DiseasePredictionPage = () => {
         setPreview(e.target.result);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreview(null);
+    setPredictionResults(null);
+    setError(null);
+    // Clear the input
+    const fileInput = document.getElementById('file-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -84,7 +96,7 @@ const DiseasePredictionPage = () => {
           </Alert>
           
           <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative ">
               <input
                 type="file"
                 accept="image/*"
@@ -92,38 +104,51 @@ const DiseasePredictionPage = () => {
                 className="hidden"
                 id="file-upload"
               />
-              <label
-                htmlFor="file-upload"
-                className="cursor-pointer flex flex-col items-center space-y-2"
-              >
-                <Upload className="w-8 h-8 text-gray-400" />
-                <span className="text-sm text-gray-600">
-                  Choose a medical image
-                </span>
-                <span className="text-xs text-gray-400">
-                  Supported formats: JPG, JPEG, PNG
-                </span>
-              </label>
+              
+              {!preview ? (
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer flex flex-col items-center space-y-2"
+                >
+                  <Upload className="w-8 h-8 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    Choose a medical image
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    Supported formats: JPG, JPEG, PNG
+                  </span>
+                </label>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                    title="Remove image"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                    {selectedFile?.name}
+                  </div>
+                </div>
+              )}
             </div>
 
             {preview && (
-              <div className="space-y-4">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-64 object-cover rounded-lg border"
-                />
-                
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={loading || !selectedFile}
-                  className="w-full"
-                  loading={loading}
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  Analyze Image
-                </Button>
-              </div>
+              <Button
+                onClick={handleAnalyze}
+                disabled={loading || !selectedFile}
+                className="w-full"
+                loading={loading}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Analyze Image
+              </Button>
             )}
           </div>
         </Card.Content>

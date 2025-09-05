@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useChat } from '../context/ChatContext';
-import { useDocuments } from '../context/DocumentContext';
-import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
 import { chatService } from '../services';
-import Button from '../components/Button';
-import Input from '../components/Input';
-import Loading from '../components/Loading';
 import VoiceRecorder from '../components/VoiceRecorder';
-import { Send, Plus, Mic, MicOff } from 'lucide-react';
+import { Send, Plus } from 'lucide-react';
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
@@ -29,52 +23,50 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (messageText = null, currentMessages = null, manageLoading = true) => {
+    const messageToSend = messageText || inputValue.trim();
+    const currentMessageList = currentMessages || messages;
+    
+    if (!messageToSend || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: inputValue.trim(),
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLoading(true);
+    // Only create and add user message if messageText is not provided
+    // (when messageText is provided, it means the message was already added)
+    let userMessage = null;
+    let updatedMessages = currentMessageList;
+    
+    if (!messageText) {
+      userMessage = {
+        role: 'user',
+        content: messageToSend,
+        timestamp: new Date().toISOString()
+      };
+      updatedMessages = [...currentMessageList, userMessage];
+      setMessages(updatedMessages);
+      setInputValue('');
+    }
+    
+    if (manageLoading) {
+      setIsLoading(true);
+    }
 
     try {
-      // Real API call to your backend
+      // Real API call to your backend using chatService
       // Convert messages to only include role and content (not timestamp)
-      const apiMessages = [...messages, userMessage].map(msg => ({
+      const apiMessages = updatedMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      const response = await fetch('http://localhost:8000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          thread_id: 'default-thread',
-          messages: apiMessages,
-          language: language
-        })
-      });
-
-      if (response.ok) {
-        const aiMessages = await response.json();
-        if (aiMessages && aiMessages.length > 0) {
-          aiMessages.forEach(msg => {
-            const messageWithTimestamp = {
-              ...msg,
-              timestamp: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, messageWithTimestamp]);
-          });
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const aiMessages = await chatService.sendMessage('default-thread', apiMessages, language);
+      
+      if (aiMessages && aiMessages.length > 0) {
+        aiMessages.forEach(msg => {
+          const messageWithTimestamp = {
+            ...msg,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, messageWithTimestamp]);
+        });
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -85,7 +77,9 @@ const ChatPage = () => {
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false);
+      if (manageLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -108,15 +102,33 @@ const ChatPage = () => {
       const result = await chatService.sendVoiceQuery(audioFile, language);
       console.log('Voice query result:', result);
       
-      if (result.answer) {
-        // Add transcription as user message
+      if (result.transcription) {
+        // Add transcription as user message (like Streamlit version)
+        const transcriptionText = result.transcription;
         const userMessage = {
           role: 'user',
-          content: `🎤 ${result.transcription || 'Voice query'}`,
+          content: `🎤 ${transcriptionText}`,
           timestamp: new Date().toISOString(),
         };
         
-        // Add AI response
+        // Update messages with user message first
+        setMessages(prev => {
+          const newMessages = [...prev, userMessage];
+          
+          // Now send the transcription through normal chat flow (like Streamlit)
+          // Don't let handleSendMessage manage loading since we're managing it here
+          handleSendMessage(transcriptionText, newMessages, false);
+          
+          return newMessages;
+        });
+      } else if (result.answer) {
+        // Fallback: if no transcription but has answer, use the old flow
+        const userMessage = {
+          role: 'user',
+          content: `🎤 Voice query`,
+          timestamp: new Date().toISOString(),
+        };
+        
         const aiMessage = {
           role: 'assistant',
           content: result.answer,

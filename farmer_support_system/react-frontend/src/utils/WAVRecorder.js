@@ -64,27 +64,47 @@ class WAVRecorder {
   stop() {
     this.isRecording = false;
 
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
-    }
+    // Add a small delay to ensure all audio processing is complete
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (this.processor) {
+          this.processor.disconnect();
+          this.processor = null;
+        }
 
-    if (this.source) {
-      this.source.disconnect();
-      this.source = null;
-    }
+        if (this.source) {
+          this.source.disconnect();
+          this.source = null;
+        }
 
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
-    }
+        if (this.stream) {
+          this.stream.getTracks().forEach(track => track.stop());
+          this.stream = null;
+        }
 
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
-
-    return this.exportWAV();
+        try {
+          const wavBlob = this.exportWAV();
+          
+          if (this.audioContext) {
+            this.audioContext.close().then(() => {
+              this.audioContext = null;
+              resolve(wavBlob);
+            }).catch(() => {
+              this.audioContext = null;
+              resolve(wavBlob);
+            });
+          } else {
+            resolve(wavBlob);
+          }
+        } catch (error) {
+          if (this.audioContext) {
+            this.audioContext.close().catch(() => {});
+            this.audioContext = null;
+          }
+          throw error;
+        }
+      }, 50); // Small delay to ensure all operations complete
+    });
   }
 
   exportWAV() {

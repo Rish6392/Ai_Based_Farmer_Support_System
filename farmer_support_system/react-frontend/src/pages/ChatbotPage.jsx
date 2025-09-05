@@ -41,11 +41,8 @@ const ChatbotPage = () => {
   useEffect(() => {
     const loadKnowledgeBaseStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/processing_status');
-        if (response.ok) {
-          const status = await response.json();
-          setKnowledgeBaseStatus(status);
-        }
+        const status = await chatService.getProcessingStatus();
+        setKnowledgeBaseStatus(status);
       } catch (error) {
         console.error('Failed to load knowledge base status:', error);
       }
@@ -70,52 +67,50 @@ const ChatbotPage = () => {
     loadThreads();
   }, []);
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSendMessage = async (messageText = null, currentMessages = null, manageLoading = true) => {
+    const messageToSend = messageText || inputMessage.trim();
+    const currentMessageList = currentMessages || messages;
+    
+    if (!messageToSend || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
+    // Only create and add user message if messageText is not provided
+    // (when messageText is provided, it means the message was already added)
+    let userMessage = null;
+    let updatedMessages = currentMessageList;
+    
+    if (!messageText) {
+      userMessage = {
+        role: 'user',
+        content: messageToSend,
+        timestamp: new Date().toISOString()
+      };
+      updatedMessages = [...currentMessageList, userMessage];
+      setMessages(updatedMessages);
+      setInputMessage('');
+    }
+    
+    if (manageLoading) {
+      setIsLoading(true);
+    }
 
     try {
-      // Real API call to your backend
+      // Real API call to your backend using chatService
       // Convert messages to only include role and content (not timestamp)
-      const apiMessages = [...messages, userMessage].map(msg => ({
+      const apiMessages = updatedMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      const response = await fetch('http://localhost:8000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          thread_id: currentThreadId,
-          messages: apiMessages,
-          language: language
-        })
-      });
-
-      if (response.ok) {
-        const aiMessages = await response.json();
-        if (aiMessages && aiMessages.length > 0) {
-          aiMessages.forEach(msg => {
-            const messageWithTimestamp = {
-              ...msg,
-              timestamp: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, messageWithTimestamp]);
-          });
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const aiMessages = await chatService.sendMessage(currentThreadId, apiMessages, language);
+      
+      if (aiMessages && aiMessages.length > 0) {
+        aiMessages.forEach(msg => {
+          const messageWithTimestamp = {
+            ...msg,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, messageWithTimestamp]);
+        });
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -126,7 +121,9 @@ const ChatbotPage = () => {
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false);
+      if (manageLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -154,15 +151,33 @@ const ChatbotPage = () => {
       const result = await chatService.sendVoiceQuery(audioFile, language);
       console.log('Voice query result:', result);
       
-      if (result.answer) {
-        // Add transcription as user message
+      if (result.transcription) {
+        // Add transcription as user message (like Streamlit version)
+        const transcriptionText = result.transcription;
         const userMessage = {
           role: 'user',
-          content: `🎤 ${result.transcription || 'Voice query'}`,
+          content: `🎤 ${transcriptionText}`,
           timestamp: new Date().toISOString(),
         };
         
-        // Add AI response
+        // Update messages with user message first
+        setMessages(prev => {
+          const newMessages = [...prev, userMessage];
+          
+          // Now send the transcription through normal chat flow (like Streamlit)
+          // Don't let handleSendMessage manage loading since we're managing it here
+          handleSendMessage(transcriptionText, newMessages, false);
+          
+          return newMessages;
+        });
+      } else if (result.answer) {
+        // Fallback: if no transcription but has answer, use the old flow
+        const userMessage = {
+          role: 'user',
+          content: `🎤 Voice query`,
+          timestamp: new Date().toISOString(),
+        };
+        
         const aiMessage = {
           role: 'assistant',
           content: result.answer,
@@ -206,8 +221,8 @@ const ChatbotPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto h-screen flex flex-col">
+    <div className="h-full bg-gray-50">
+      <div className="container mx-auto h-full flex flex-col">
         {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">

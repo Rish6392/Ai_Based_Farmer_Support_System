@@ -9,18 +9,18 @@ const Layout = () => {
   const isLandingPage = location.pathname === '/';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Show navbar only when not on landing page */}
       {<Navbar />}
       
       {/* Main Content */}
-      <main className="relative">
+      <main className="flex-1">
         <Outlet />
       </main>
 
       {/* Footer - only show when not on landing page */}
       {!isLandingPage && (
-        <footer className="bg-gray-800 text-gray-300 py-6 mt-auto">
+        <footer className="bg-gray-800 text-gray-300 py-6">
           <div className="container mx-auto px-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-3 mb-4 md:mb-0">

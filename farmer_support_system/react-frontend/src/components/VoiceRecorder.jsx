@@ -33,7 +33,8 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
       }
       if (wavRecorderRef.current) {
         try {
-          wavRecorderRef.current.stop();
+          // For cleanup, we don't need to wait for the promise
+          wavRecorderRef.current.stop().catch(() => {});
         } catch (e) {
           // Ignore errors during cleanup
         }
@@ -144,7 +145,7 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     setIsRecording(false);
     
     // Stop timer
@@ -155,7 +156,7 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     // Handle WAV recording
     if (wavRecorderRef.current) {
       try {
-        const wavBlob = wavRecorderRef.current.stop();
+        const wavBlob = await wavRecorderRef.current.stop();
         setAudioBlob(wavBlob);
         setDuration(recordingTime);
         console.log('WAV recording stopped successfully:', wavBlob.size, 'bytes');
@@ -173,9 +174,9 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     }
   };
 
-  const resetRecording = () => {
+  const resetRecording = async () => {
     if (isRecording) {
-      stopRecording();
+      await stopRecording();
     }
     if (isPlaying) {
       setIsPlaying(false);
@@ -250,10 +251,17 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     try {
       console.log('Processing audio blob:', audioBlob.type, audioBlob.size, 'bytes');
       
+      // Add a small delay to ensure any file operations are complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // If we have a WAV blob (from WAVRecorder), use it directly
       if (audioBlob.type === 'audio/wav') {
         console.log('Using native WAV audio');
-        const file = new File([audioBlob], 'voice-query.wav', { type: 'audio/wav' });
+        
+        // Create a new blob to avoid file handle conflicts
+        const wavBlob = new Blob([audioBlob], { type: 'audio/wav' });
+        const file = new File([wavBlob], `voice-query-${Date.now()}.wav`, { type: 'audio/wav' });
+        
         await onVoiceQuery(file, voiceLanguage);
         console.log('Voice query successful with WAV format');
         resetRecording();
@@ -262,7 +270,10 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
 
       // Otherwise, try the original format first (backend can handle conversion)
       try {
-        const originalFile = new File([audioBlob], 'voice-query.webm', { type: audioBlob.type });
+        // Create a new blob to avoid file handle conflicts
+        const originalBlob = new Blob([audioBlob], { type: audioBlob.type });
+        const originalFile = new File([originalBlob], `voice-query-${Date.now()}.webm`, { type: audioBlob.type });
+        
         await onVoiceQuery(originalFile, voiceLanguage);
         console.log('Voice query successful with original format');
         resetRecording();
@@ -275,7 +286,13 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
           const wavBlob = await convertWebMToWav(audioBlob);
           console.log('Converted to WAV:', wavBlob.size, 'bytes');
           
-          const file = new File([wavBlob], 'voice-query.wav', { type: 'audio/wav' });
+          // Add another small delay after conversion
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Create a new blob to avoid file handle conflicts
+          const finalWavBlob = new Blob([wavBlob], { type: 'audio/wav' });
+          const file = new File([finalWavBlob], `voice-query-${Date.now()}.wav`, { type: 'audio/wav' });
+          
           await onVoiceQuery(file, voiceLanguage);
           console.log('Voice query successful with WAV conversion');
           resetRecording();
