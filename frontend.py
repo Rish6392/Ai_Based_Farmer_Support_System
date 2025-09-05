@@ -156,7 +156,7 @@ with tab1:
         audio_bytes = st_audiorec.st_audiorec()
         voice_lang = st.selectbox(
             "Speech Language",
-            ["Malayalam", "English", "Hindi", "Spanish", "French", "German", "Chinese", "Arabic"],
+            ["English" , "Malayalam", "Hindi", "Spanish", "French", "German", "Chinese", "Arabic"],
             key="voice_lang_select"
         )
         st.session_state.voice_lang = voice_lang
@@ -166,7 +166,8 @@ with tab1:
                 # Send audio to backend for processing
                 files = {"file": ("voice_query.wav", audio_bytes, "audio/wav")}
                 params = {"language": voice_lang}
-                response = requests.post(f"{API_URL}/voice_query", files=files, data=params)
+                # Increase timeout to 60 seconds to avoid read timeout
+                response = requests.post(f"{API_URL}/voice_query", files=files, data=params, timeout=60)
                 if response.status_code == 200:
                     result = response.json()
                     answer = result.get("answer", "No answer received.")

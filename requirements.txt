@@ -39,3 +39,4 @@ ffmpeg-python
 numpy
 arxiv
 wikipedia
+tf-keras
