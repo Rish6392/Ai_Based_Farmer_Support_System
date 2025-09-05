@@ -3,6 +3,7 @@ import { Upload, Search, MessageCircle } from 'lucide-react';
 import { Button, Card, Loading, Alert } from '../components';
 import { diseaseService } from '../services';
 import { useChat } from '../context';
+import { useAppNavigation } from '../utils';
 
 const DiseasePredictionPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -12,6 +13,7 @@ const DiseasePredictionPage = () => {
   const [error, setError] = useState(null);
 
   const { setPendingInput } = useChat();
+  const { navigateToChat } = useAppNavigation();
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -49,7 +51,7 @@ const DiseasePredictionPage = () => {
     if (predictionResults?.prediction) {
       const question = `I just received a disease prediction of '${predictionResults.prediction}' from an uploaded image. Can you tell me more about this condition?`;
       setPendingInput(question);
-      // You might want to navigate to chat page here
+      navigateToChat(question); // Navigate to chat page with the question
     }
   };
 

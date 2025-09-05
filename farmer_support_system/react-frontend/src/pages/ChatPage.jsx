@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useDocuments } from '../context/DocumentContext';
 import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
+import { chatService } from '../services';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Loading from '../components/Loading';
@@ -102,20 +103,10 @@ const ChatPage = () => {
   const handleVoiceQuery = async (audioFile, language) => {
     try {
       setIsLoading(true);
-      const formData = new FormData();
-      formData.append('file', audioFile);
-      formData.append('language', language);
-
-      const response = await fetch('http://localhost:8000/voice_query', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      console.log('Sending voice query with file:', audioFile.name, audioFile.type, audioFile.size, 'bytes');
+      
+      const result = await chatService.sendVoiceQuery(audioFile, language);
+      console.log('Voice query result:', result);
       
       if (result.answer) {
         // Add transcription as user message

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, XCircle, X } from 'lucide-react';
 
 const Alert = ({ 
   type = 'info', 
@@ -9,45 +9,38 @@ const Alert = ({
 }) => {
   const types = {
     success: {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      text: 'text-green-800',
+      className: 'alert-success',
       icon: CheckCircle
     },
     error: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      text: 'text-red-800',
+      className: 'alert-error',
       icon: XCircle
     },
     warning: {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-200',
-      text: 'text-yellow-800',
+      className: 'alert-warning',
       icon: AlertCircle
     },
     info: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      text: 'text-blue-800',
+      className: 'alert-info',
       icon: Info
     }
   };
   
-  const { bg, border, text, icon: Icon } = types[type];
+  const { className: alertClass, icon: Icon } = types[type];
   
   return (
-    <div className={`${bg} ${border} ${text} px-4 py-3 rounded-lg border flex items-start ${className}`}>
-      <Icon className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
-      <div className="flex-1">
+    <div className={`alert ${alertClass} flex items-start space-x-3 ${className}`}>
+      <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
         {children}
       </div>
       {onClose && (
         <button 
           onClick={onClose}
-          className="ml-3 text-gray-400 hover:text-gray-600"
+          className="flex-shrink-0 ml-2 p-1 rounded-full hover:bg-black/5 transition-colors duration-200"
+          aria-label="Close alert"
         >
-          <XCircle className="w-4 h-4" />
+          <X className="w-4 h-4" />
         </button>
       )}
     </div>
