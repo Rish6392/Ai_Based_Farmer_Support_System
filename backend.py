@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import List, Optional, TypedDict, Annotated
 import uuid, sqlite3, shutil, os
 import tempfile
+import json
+import traceback
 import speech_recognition as sr
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, BaseMessage, AIMessage, SystemMessage
@@ -125,7 +127,12 @@ If you don't know the answer, say so.
         return {"messages": [AIMessage(content=f"Sorry, I encountered an error: {str(e)}")]}
 
 # -------------------- SQLite & Graph Compilation --------------------
-conn = sqlite3.connect(database='chatbot.db', check_same_thread=False)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Join that directory path with the database filename
+db_path = os.path.join(script_dir, "chatbot.db")
+print(f"--- Connecting to database at: {db_path} ---") # For debugging
+
+conn = sqlite3.connect(database=db_path, check_same_thread=False)
 checkpointer = SqliteSaver(conn=conn)
 
 graph = StateGraph(ChatState)
@@ -172,13 +179,36 @@ def generate_thread_id():
     return str(uuid.uuid4())
 
 def retrieve_all_threads():
+    """
+    Definitive Version: Correctly sorts conversations using the 'checkpoint_id' column.
+    """
     try:
-        threads = set()
-        for checkpoint in checkpointer.list(limit=100): # Add a limit for safety
-            threads.add(checkpoint['configurable']['thread_id'])
-        return sorted(list(threads), reverse=True) # Return newest first
+        with conn:
+            cursor = conn.cursor()
+            # Step 1: Select all thread_ids, correctly sorted by the chronological checkpoint_id.
+            cursor.execute(
+                "SELECT thread_id FROM checkpoints ORDER BY checkpoint_id DESC"
+            )
+            rows = cursor.fetchall()
+
+            # Step 2: Create a unique list in Python, which preserves the correct sorted order.
+            unique_thread_ids = []
+            seen_ids = set()
+            for row in rows:
+                thread_id = row[0]
+                if thread_id not in seen_ids:
+                    unique_thread_ids.append(thread_id)
+                    seen_ids.add(thread_id)
+            
+            return unique_thread_ids
+            
     except Exception as e:
-        logger.error(f"Could not retrieve threads: {e}")
+        if "no such table" in str(e) or "no such column" in str(e):
+            logger.warning(f"Database query failed (table or column might be missing): {e}")
+            return []
+        
+        logger.error(f"Failed to retrieve threads directly from database: {e}")
+        traceback.print_exc()
         return []
 
 
@@ -192,6 +222,36 @@ def convert_messages(messages: List[Message]) -> List[BaseMessage]:
     return converted
 
 # -------------------- API Endpoints --------------------
+
+
+# Add this new temporary endpoint to your backend.py file
+
+@app.get("/debug-schema")
+def debug_schema():
+    """
+    A temporary endpoint to read the exact schema of the checkpoints table.
+    """
+    try:
+        with conn:
+            cursor = conn.cursor()
+            # This command asks the database to describe the 'checkpoints' table
+            cursor.execute("PRAGMA table_info(checkpoints);")
+            schema_info = cursor.fetchall()
+            
+            if not schema_info:
+                return {"error": "Could not retrieve schema. The 'checkpoints' table may not exist."}
+
+            # Format the result into a readable JSON
+            columns = [
+                {"column_index": row[0], "name": row[1], "type": row[2], "can_be_null": not row[3]}
+                for row in schema_info
+            ]
+            return {"table_name": "checkpoints", "schema": columns}
+            
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
+
 @app.post("/chat", response_model=List[Message])
 def chat_endpoint(request: ChatRequest):
     # <<< CHANGE START: This is the main fix.

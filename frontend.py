@@ -80,9 +80,29 @@ if 'thread_id' not in st.session_state:
 if 'message_history' not in st.session_state:
     st.session_state.message_history = []
 
+# -------------------- Session State Initialization --------------------
+if 'thread_id' not in st.session_state:
+    st.session_state.thread_id = create_new_thread() or str(uuid.uuid4())
+
+if 'message_history' not in st.session_state:
+    st.session_state.message_history = []
+
+# <<< FIX START: Correctly initialize and combine thread lists
 if 'chat_threads' not in st.session_state:
-    threads = get_all_threads()
-    st.session_state.chat_threads = threads if threads else [st.session_state.thread_id]
+    all_threads = get_all_threads()
+    # Ensure the current thread is always at the top of a new session's list
+    updated_threads = [st.session_state.thread_id]
+    for thread in all_threads:
+        if thread not in updated_threads:
+            updated_threads.append(thread)
+    st.session_state.chat_threads = updated_threads
+# <<< FIX END
+
+# Store voice language and latest transcription
+if 'voice_lang' not in st.session_state:
+    st.session_state.voice_lang = "English"
+if 'last_transcription' not in st.session_state:
+    st.session_state.last_transcription = ""
 
 # Store voice language and latest transcription
 if 'voice_lang' not in st.session_state:
@@ -225,6 +245,14 @@ with tab1:
                 with st.chat_message("assistant"):
                     st.markdown(ai_msg.get('content', ''))
                 st.session_state.message_history.append(ai_msg)
+                
+            get_all_threads.clear() # Clear the cache to fetch the latest list
+            all_threads = get_all_threads()
+            updated_threads = [st.session_state.thread_id] # Keep current at top
+            for thread in all_threads:
+                if thread not in updated_threads:
+                    updated_threads.append(thread)
+            st.session_state.chat_threads = updated_threads    
             # Rerun to clear the chat input box after processing
             st.rerun()
 
