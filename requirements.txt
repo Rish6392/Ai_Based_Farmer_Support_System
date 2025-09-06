@@ -40,3 +40,5 @@ numpy
 arxiv
 wikipedia
 tf-keras
+gtts
+soundfile
