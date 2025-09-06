@@ -18,9 +18,13 @@ from langchain_pinecone import PineconeVectorStore
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from apscheduler.schedulers.background import BackgroundScheduler
+from contextlib import asynccontextmanager
+from advisory_engine import run_advisory_check # Import your main function
 from pinecone import Pinecone
 from models.prediction import PredictionPipeline
 import logging
+import sqlite3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -134,15 +138,58 @@ print(f"--- Connecting to database at: {db_path} ---") # For debugging
 
 conn = sqlite3.connect(database=db_path, check_same_thread=False)
 checkpointer = SqliteSaver(conn=conn)
+def create_db_and_tables():
+    print("--- Initializing Database ---")
+    conn = sqlite3.connect("chatbot.db")
+    cursor = conn.cursor()
 
+    # Your SQL command to create the users table
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone_number TEXT NOT NULL UNIQUE,
+        district TEXT NOT NULL,
+        primary_crop TEXT
+    );
+    """
+
+    cursor.execute(create_table_sql)
+    print("Table 'users' created or already exists.")
+
+    conn.commit()
+    conn.close()
+
+create_db_and_tables()    
+    
 graph = StateGraph(ChatState)
 graph.add_node("chat_node", chat_node)
 graph.add_edge(START, "chat_node")
 graph.add_edge("chat_node", END)
 chatbot = graph.compile(checkpointer=checkpointer)
 
+
+scheduler = BackgroundScheduler()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Code to run on startup ---
+    print("--- Initializing application ---")
+    create_db_and_tables()
+    
+    # Schedule the job to run every day at 7:00 AM Kerala time (IST)
+    scheduler.add_job(run_advisory_check, 'cron', hour=19, minute=44, timezone='Asia/Kolkata')
+    scheduler.start()
+    print("APScheduler started...")
+    
+    yield # The application is now ready to run and accept requests
+    
+    # --- Code to run on shutdown ---
+    print("--- Shutting down application ---")
+    scheduler.shutdown()
+    print("APScheduler shut down.")
+
+
 # -------------------- FastAPI Setup --------------------
-app = FastAPI(title="RAG LangGraph Chatbot API")
+app = FastAPI(title="RAG LangGraph Chatbot API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -173,6 +220,11 @@ class DocumentListResponse(BaseModel):
 class ProcessingStatusResponse(BaseModel):
     total_documents: int
     processed_chunks: int
+
+class UserProfile(BaseModel):
+    phone_number: str
+    district: str
+    primary_crop: Optional[str] = None
 
 # -------------------- Utility Functions --------------------
 def generate_thread_id():
@@ -224,7 +276,31 @@ def convert_messages(messages: List[Message]) -> List[BaseMessage]:
 # -------------------- API Endpoints --------------------
 
 
-# Add this new temporary endpoint to your backend.py file
+
+
+
+# Optional: Add a testing endpoint to trigger the check manually
+@app.post("/trigger-advisory-manually")
+def trigger_advisory():
+    run_advisory_check()
+    return {"status": "Advisory check triggered manually."}
+
+
+@app.post("/register-user")
+def register_user(user: UserProfile):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO users (phone_number, district, primary_crop) VALUES (?, ?, ?)",
+                (user.phone_number, user.district, user.primary_crop)
+            )
+            conn.commit()
+        return {"status": "success", "message": f"User {user.phone_number} registered."}
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Phone number already registered.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/debug-schema")
 def debug_schema():
@@ -424,6 +500,9 @@ def get_processing_status():
         return ProcessingStatusResponse(total_documents=total_docs, processed_chunks=processed_chunks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @app.post("/api/predict-disease/")
 async def predict_disease(file: UploadFile = File(...)):

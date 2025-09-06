@@ -43,3 +43,6 @@ tf-keras
 gtts
 soundfile
 gTTS
+apscheduler
+requests
+twilio
