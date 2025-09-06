@@ -192,8 +192,7 @@ tab1, tab2, tab3 = st.tabs(["💬 Ask Expert", "🌿 Crop Disease Detection", "�
 
 # -------------------- Chatbot Tab --------------------
 with tab1:
-    st.header("Chat Conversation")
-    chat_container = st.container()
+    chat_container = st.container(height=400)
 
     # <<< MODIFICATION START: Updated chat display loop
     with chat_container:
