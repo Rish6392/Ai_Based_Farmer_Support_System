@@ -7,6 +7,8 @@ import tempfile
 import json
 import traceback
 import speech_recognition as sr
+from pydub import AudioSegment
+import io
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, BaseMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
@@ -416,20 +418,104 @@ async def voice_query(file: UploadFile = File(...), language: str = Form("Malaya
     """
     Accepts a voice query (audio file), transcribes it, and returns RAG chatbot answer.
     """
+    temp_audio_path = None
     try:
-        # Save uploaded audio to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            shutil.copyfileobj(file.file, temp_audio)
-            temp_audio_path = temp_audio.name
+        logger.info(f"Received audio file: {file.filename}, content_type: {file.content_type}, size: {file.size}")
+        
+        # Read the uploaded file content
+        file_content = await file.read()
+        
+        # Determine the file format from content type or filename
+        file_extension = ".webm"  # default
+        if file.content_type:
+            if "wav" in file.content_type:
+                file_extension = ".wav"
+            elif "mp3" in file.content_type:
+                file_extension = ".mp3"
+            elif "webm" in file.content_type:
+                file_extension = ".webm"
+            elif "mp4" in file.content_type:
+                file_extension = ".mp4"
+        elif file.filename:
+            if file.filename.lower().endswith('.wav'):
+                file_extension = ".wav"
+            elif file.filename.lower().endswith('.mp3'):
+                file_extension = ".mp3"
+            elif file.filename.lower().endswith('.webm'):
+                file_extension = ".webm"
+            elif file.filename.lower().endswith('.mp4'):
+                file_extension = ".mp4"
+
+        # Save uploaded audio to temp file with original extension
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_original:
+            temp_original.write(file_content)
+            temp_original_path = temp_original.name
+
+        # Convert to WAV if not already WAV
+        if file_extension != ".wav":
+            try:
+                logger.info(f"Converting {file_extension} to WAV")
+                # Use pydub to convert to WAV
+                if file_extension == ".webm":
+                    # For WebM files, try using raw format
+                    audio = AudioSegment.from_file(temp_original_path, format="webm")
+                elif file_extension == ".mp4":
+                    audio = AudioSegment.from_file(temp_original_path, format="mp4")
+                elif file_extension == ".mp3":
+                    audio = AudioSegment.from_file(temp_original_path, format="mp3")
+                else:
+                    audio = AudioSegment.from_file(temp_original_path)
+                
+                # Convert to 16kHz mono for better speech recognition
+                audio = audio.set_frame_rate(16000).set_channels(1)
+                
+                # Export as WAV
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                    audio.export(temp_wav.name, format="wav")
+                    temp_audio_path = temp_wav.name
+                
+                # Clean up original temp file
+                os.remove(temp_original_path)
+                logger.info("Audio conversion successful")
+            except Exception as e:
+                logger.error(f"Audio conversion with pydub failed: {str(e)}")
+                # Fallback: try to use the original file directly
+                try:
+                    logger.info("Attempting direct processing with original file")
+                    temp_audio_path = temp_original_path
+                    
+                    # Try to read the file with speech_recognition directly
+                    recognizer = sr.Recognizer()
+                    with sr.AudioFile(temp_audio_path) as source:
+                        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                        audio_data = recognizer.record(source)
+                    # If this works, we'll continue with transcription
+                    logger.info("Direct processing successful")
+                except Exception as direct_error:
+                    logger.error(f"Direct processing also failed: {str(direct_error)}")
+                    if os.path.exists(temp_original_path):
+                        os.remove(temp_original_path)
+                    return {
+                        "answer": f"Audio processing failed. Please ensure you're sending a valid audio file in WAV, MP3, or WebM format. Error: {str(e)}"
+                    }
+        else:
+            temp_audio_path = temp_original_path
 
         # Transcribe audio
         recognizer = sr.Recognizer()
         with sr.AudioFile(temp_audio_path) as source:
+            # Adjust for ambient noise
+            recognizer.adjust_for_ambient_noise(source, duration=0.5)
             audio_data = recognizer.record(source)
+            
             # Use Malayalam or selected language
             lang_code = {
-                "Malayalam": "ml-IN", "English": "en-US", "Hindi": "hi-IN", "Spanish": "es-ES", "French": "fr-FR", "German": "de-DE", "Chinese": "zh-CN", "Arabic": "ar-SA"
+                "Malayalam": "ml-IN", "English": "en-US", "Hindi": "hi-IN", 
+                "Spanish": "es-ES", "French": "fr-FR", "German": "de-DE", 
+                "Chinese": "zh-CN", "Arabic": "ar-SA"
             }.get(language, "ml-IN")
+            
+            logger.info(f"Attempting transcription with language: {lang_code}")
             try:
                 query_text = recognizer.recognize_google(audio_data, language=lang_code)
             except sr.UnknownValueError:
@@ -440,10 +526,12 @@ async def voice_query(file: UploadFile = File(...), language: str = Form("Malaya
                 raise HTTPException(status_code=503, detail=f"Could not request results from Google Speech Recognition service; {e}")
             # <<< CHANGE END
 
-        os.remove(temp_audio_path)
+
+        # Clean up temp file
+        if temp_audio_path:
+            os.remove(temp_audio_path)
 
         # Pass transcribed text to RAG chatbot
-        # Use a new thread for each voice query (or you can use session)
         thread_id = str(uuid.uuid4())
         messages = [HumanMessage(content=query_text)]
         CONFIG = {'configurable': {'thread_id': thread_id}}
@@ -463,6 +551,7 @@ async def voice_query(file: UploadFile = File(...), language: str = Form("Malaya
             os.remove(temp_audio_path)
         logger.error(f"Voice query processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Voice query failed: {str(e)}")
+
 
 @app.get("/threads", response_model=ThreadListResponse)
 def get_all_threads():
