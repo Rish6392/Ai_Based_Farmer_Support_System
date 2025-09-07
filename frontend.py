@@ -29,7 +29,7 @@ def text_to_speech(text: str, language: str) -> bytes:
     lang_code = lang_code_map.get(language, 'en')
 
     try:
-        tts = gTTS(text=text, lang=lang_code, slow=False)
+        tts = gTTS(text=text, lang=lang_code, tld="co.in", slow=False)
         audio_fp = io.BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
