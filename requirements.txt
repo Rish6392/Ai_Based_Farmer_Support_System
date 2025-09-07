@@ -40,3 +40,9 @@ numpy
 arxiv
 wikipedia
 tf-keras
+gtts
+soundfile
+gTTS
+apscheduler
+requests
+twilio
