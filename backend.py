@@ -176,7 +176,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     
     # Schedule the job to run every day at 7:00 AM Kerala time (IST)
-    scheduler.add_job(run_advisory_check, 'cron', hour=19, minute=44, timezone='Asia/Kolkata')
+    # scheduler.add_job(run_advisory_check, 'cron', hour=19, minute=44, timezone='Asia/Kolkata')
     scheduler.start()
     print("APScheduler started...")
     
