@@ -1,17 +1,76 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import { MapPin, Mic, Image as ImageIcon } from 'lucide-react';
+import { MapPin, Mic, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '../context/AuthContext';
 
 // Import Swiper styles
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
+// Import Rectangle assets
+import Rectangle1 from '../assets/Rectangle 1.svg';
+import Rectangle7 from '../assets/Rectangle 7.svg';
+import Rectangle8 from '../assets/Rectangle 8.svg';
+import Rectangle9 from '../assets/Rectangle 9.svg';
+import Rectangle11 from '../assets/Rectangle 11.svg';
+
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Rectangle carousel data using your Rectangle files
+  const rectangleSlides = [
+    {
+      id: 1,
+      image: Rectangle7,
+      title: "Smart Farming",
+      subtitle: "AI-Powered Agriculture",
+      description: "Transform your farming with intelligent crop monitoring and disease detection technology."
+    },
+    {
+      id: 2,
+      image: Rectangle8,
+      title: "Crop Health",
+      subtitle: "Disease Prevention",
+      description: "Early detection and prevention of crop diseases using advanced image recognition."
+    },
+    {
+      id: 3,
+      image: Rectangle9,
+      title: "Yield Optimization",
+      subtitle: "Maximum Harvest",
+      description: "Optimize your crop yield with data-driven insights and farming recommendations."
+    },
+    {
+      id: 4,
+      image: Rectangle11,
+      title: "Expert Support",
+      subtitle: "24/7 Assistance",
+      description: "Get expert farming advice and support whenever you need it most."
+    }
+  ];
+
+  // Auto-advance slides
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % rectangleSlides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [rectangleSlides.length]);
+
+  // Navigation functions
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % rectangleSlides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + rectangleSlides.length) % rectangleSlides.length);
+  };
+  const { isAuthenticated } = useAuth();
   
   // React Hook Form setup
   const {
@@ -25,6 +84,22 @@ const LandingPage = () => {
     console.log('Form submitted successfully:', data);
     alert('Thank you for your message! We will get back to you soon.');
     reset();
+  };
+
+  const handleExploreClick = () => {
+    if (isAuthenticated) {
+      navigate('/disease-prediction');
+    } else {
+      navigate('/login');
+    }
+  };
+
+  const handleCardClick = (route) => {
+    if (route === '/disease-prediction' && !isAuthenticated) {
+      navigate('/login');
+    } else {
+      navigate(route);
+    }
   };
 
   // Hero slides data
@@ -85,88 +160,124 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section with Swiper */}
+      {/* Hero Section with Rectangle 1 Background and Rectangle Carousel */}
       <section className="relative h-screen overflow-hidden">
-        <Swiper
-          modules={[Navigation, Pagination, Autoplay]}
-          navigation
-          pagination={{ clickable: true }}
-          autoplay={{
-            delay: 5000,
-            disableOnInteraction: false,
+        {/* Static Rectangle 1 Background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${Rectangle1})`,
           }}
-          loop={true}
-          className="h-full"
-        >
-          {heroSlides.map((slide) => (
-            <SwiperSlide key={slide.id} className="relative">
-              {/* Background Image */}
-              <div
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{
-                  backgroundImage: `url(${slide.image})`,
-                }}
-              />
+        />
+        
+        {/* Content */}
+        <div className="relative z-10 h-full flex items-center">
+          <div className="container mx-auto px-6 lg:px-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
               
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-black bg-opacity-40" />
+              {/* Left Content */}
+              <div className="space-y-6">
+                <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
+                  {rectangleSlides[currentSlide].title}
+                </h1>
+                <h2 className="text-xl md:text-2xl text-green-300 font-semibold">
+                  {rectangleSlides[currentSlide].subtitle}
+                </h2>
+                <p className="text-white text-lg leading-relaxed opacity-90 max-w-lg">
+                  {rectangleSlides[currentSlide].description}
+                </p>
+                <button
+                  onClick={() => navigate('/disease-prediction')}
+                  className="inline-flex items-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  Explore Now
+                  <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
+              </div>
               
-              {/* Content */}
-              <div className="relative z-10 h-full flex items-center">
-                <div className="container mx-auto px-6 lg:px-12">
-                  <div className="max-w-4xl">
-                    {/* Main Title */}
-                    <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
-                      {slide.title}
-                    </h1>
-                    
-                    {/* Content Area */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                      {/* Left Content */}
-                      <div className="space-y-6">
-                        <h2 className="text-xl md:text-2xl text-green-300 font-semibold">
-                          {slide.subtitle}
-                        </h2>
-                        <p className="text-white text-lg leading-relaxed opacity-90">
-                          {slide.description}
-                        </p>
-                        <button
-                          onClick={() => navigate('/disease-prediction')}
-                          className="inline-flex items-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-                        >
-                          Explore Now
-                          <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                          </svg>
-                        </button>
+              {/* Right Content - Rectangle Images Carousel */}
+              <div className="relative flex justify-center items-center">
+                
+                {/* Navigation Arrows */}
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-0 z-20 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all duration-300 transform hover:scale-110"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-0 z-20 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all duration-300 transform hover:scale-110"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+
+                {/* Main Carousel Container */}
+                <div className="relative w-full max-w-md">
+                  {/* Main Rectangle Images */}
+                  <div className="relative h-80 lg:h-96 overflow-hidden rounded-3xl">
+                    {rectangleSlides.map((slide, index) => (
+                      <div
+                        key={slide.id}
+                        className={`absolute inset-0 transition-all duration-700 transform ${
+                          index === currentSlide
+                            ? 'opacity-100 translate-x-0 scale-100'
+                            : index < currentSlide
+                            ? 'opacity-0 -translate-x-full scale-95'
+                            : 'opacity-0 translate-x-full scale-95'
+                        }`}
+                      >
+                        <img
+                          src={slide.image}
+                          alt={slide.title}
+                          className="w-full h-full object-cover rounded-3xl shadow-2xl border-4 border-white"
+                        />
+
                       </div>
-                      
-                      {/* Right Content - Featured Images */}
-                      <div className="hidden lg:flex flex-col space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
-                            <img
-                              src="https://images.unsplash.com/photo-1595273670150-bd0c3c392e76?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80"
-                              alt="Farmer working"
-                              className="w-full h-32 object-cover rounded-lg"
-                            />
-                          </div>
-                          <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30 mt-8">
-                            <img
-                              src="https://images.unsplash.com/photo-1464226184884-fa280b87c399?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80"
-                              alt="Agricultural technology"
-                              className="w-full h-32 object-cover rounded-lg"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
+                  </div>
+
+                  {/* Secondary smaller images */}
+                  <div className="absolute -top-8 -right-8 w-24 h-32 opacity-80">
+                    <img
+                      src={rectangleSlides[(currentSlide + 1) % rectangleSlides.length].image}
+                      alt="Next"
+                      className="w-full h-full object-cover rounded-2xl shadow-xl border-2 border-white"
+                    />
+                  </div>
+                  
+                  <div className="absolute -bottom-8 -right-8 w-20 h-28 opacity-60">
+                    <img
+                      src={rectangleSlides[(currentSlide + 2) % rectangleSlides.length].image}
+                      alt="Preview"
+                      className="w-full h-full object-cover rounded-xl shadow-lg border-2 border-white"
+                    />
                   </div>
                 </div>
               </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Navigation Indicators */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="flex space-x-3">
+            {rectangleSlides.map((_, index) => (
+              <button
+                key={`indicator-${index}`}
+                onClick={() => setCurrentSlide(index)}
+                className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                  index === currentSlide
+                    ? 'bg-blue-500 scale-125'
+                    : 'bg-white bg-opacity-50 hover:bg-opacity-75'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Cards Section */}
@@ -189,7 +300,7 @@ const LandingPage = () => {
               return (
                 <div
                   key={card.id}
-                  onClick={() => navigate(card.route)}
+                  onClick={() => handleCardClick(card.route)}
                   className={`group cursor-pointer bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 ${card.hoverColor}`}
                 >
                   {/* Icon */}
@@ -399,10 +510,10 @@ const LandingPage = () => {
 
                   {/* CTA */}
                   <button
-                    onClick={() => navigate('/chat')}
+                    onClick={() => isAuthenticated ? navigate('/chat') : navigate('/login')}
                     className="w-full bg-white text-green-600 font-semibold py-3 px-6 rounded-lg hover:bg-gray-50 transition-colors duration-300"
                   >
-                    Start Chatting Now
+                    {isAuthenticated ? 'Start Chatting Now' : 'Login to Chat'}
                   </button>
                 </div>
               </div>

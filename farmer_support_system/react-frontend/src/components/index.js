@@ -8,3 +8,4 @@ export { default as Select } from './Select';
 export { default as Tabs } from './Tabs';
 export { default as Navbar } from './Navbar';
 export { default as Layout } from './Layout';
+export { default as ProtectedRoute } from './ProtectedRoute';

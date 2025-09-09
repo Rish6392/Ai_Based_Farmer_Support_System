@@ -221,37 +221,17 @@ const ChatbotPage = () => {
   ];
 
   return (
-    <div className="h-full bg-gray-50">
-      <div className="container mx-auto h-full flex flex-col">
+    <div className="bg-gray-50" style={{ height: '100vh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+      <div className="flex flex-col" style={{ height: '100vh' }}>
         {/* Header */}
-        <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                <Bot className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">KisanSewa AI Assistant</h1>
-                <p className="text-sm text-green-600 flex items-center">
-                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                  Online
-                </p>
-              </div>
-            </div>
-            <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
-              <span>Powered by AI</span>
-              <div className="w-px h-4 bg-gray-300"></div>
-              <span>24/7 Support</span>
-            </div>
-          </div>
-        </div>
+
 
         {/* Chat Area */}
-        <div className="flex-1 flex">
+        <div style={{ height: 'calc(100vh - 80px)', display: 'flex' }}>
           {/* Main Chat */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Messages Container */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ height: 'calc(100% - 100px)' }}>
               {messages.map((message, index) => (
                 <div
                   key={index}
@@ -305,7 +285,7 @@ const ChatbotPage = () => {
             </div>
 
             {/* Input Area */}
-            <div className="bg-white border-t border-gray-200 p-6">
+            <div className="bg-white border-t border-gray-200 p-6" style={{ height: '100px', flexShrink: 0 }}>
               <div className="flex items-end space-x-3">
                 <div className="flex-1">
                   <div className="relative">
@@ -335,8 +315,15 @@ const ChatbotPage = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="hidden lg:block w-80 bg-white border-l border-gray-200">
-            <div className="p-6">
+          <div className="hidden lg:flex w-80 bg-white border-l border-gray-200 flex-col" style={{ height: '100%' }}>
+            <div 
+              className="flex-1 overflow-y-auto p-6 pb-8"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#cbd5e0 #f7fafc',
+                height: '100%'
+              }}
+            >
               {/* New Chat Button */}
               <button
                 onClick={handleNewChat}

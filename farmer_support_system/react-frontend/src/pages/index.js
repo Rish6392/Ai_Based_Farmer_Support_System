@@ -7,3 +7,6 @@ export { default as DashboardPage } from './DashboardPage';
 export { default as ContactPage } from './ContactPage';
 export { default as FaqPage } from './FaqPage';
 export { default as NotFoundPage } from './NotFoundPage';
+export { default as LoginPage } from './LoginPage';
+export { default as OTPVerificationPage } from './OTPVerificationPage';
+export { default as UserRegistrationPage } from './UserRegistrationPage';

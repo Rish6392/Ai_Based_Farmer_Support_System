@@ -1,9 +1,30 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Menu, X, User, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  const userMenuRef = useRef(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+
 
   const navItems = [
     { 
@@ -12,7 +33,8 @@ const Navbar = () => {
     },
     { 
       path: '/disease-prediction', 
-      label: 'Crops'
+      label: 'Crops',
+      requireAuth: true
     },
     { 
       path: '/faq', 
@@ -25,9 +47,25 @@ const Navbar = () => {
     {
       path: '/chat',
       label: 'Chatbot',
-      isSpecial: true
+      isSpecial: true,
+      requireAuth: true
     }
   ];
+
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    navigate('/');
+  };
+
+  const handleLogin = () => {
+    navigate('/login');
+  };
+
+  // Filter nav items based on auth status
+  const filteredNavItems = navItems.filter(item => 
+    !item.requireAuth || (item.requireAuth && isAuthenticated)
+  );
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
@@ -43,7 +81,7 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -60,6 +98,43 @@ const Navbar = () => {
                 {item.label}
               </NavLink>
             ))}
+            
+            {/* Auth Section */}
+            {isAuthenticated ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-green-600 transition-colors"
+                >
+                  <User className="w-5 h-5" />
+                  <span>{user?.name || 'User'}</span>
+                </button>
+                
+                {/* User Dropdown */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                      <p className="text-xs text-gray-500">+91 {user?.mobileNumber}</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleLogin}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md text-sm font-medium transition-colors"
+              >
+                Login
+              </button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -75,7 +150,7 @@ const Navbar = () => {
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
             <div className="flex flex-col space-y-2">
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
@@ -93,6 +168,36 @@ const Navbar = () => {
                   {item.label}
                 </NavLink>
               ))}
+              
+              {/* Mobile Auth Section */}
+              {isAuthenticated ? (
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="px-4 py-2">
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500">+91 {user?.mobileNumber}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleLogin();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="mx-2 bg-green-600 text-white rounded-lg px-4 py-3 text-sm font-medium text-center"
+                >
+                  Login
+                </button>
+              )}
             </div>
           </div>
         )}
