@@ -10,7 +10,10 @@ import io  # <<< ADDED IMPORT
 # To be installed: pip install streamlit-webrtc st_audiorec pandas gtts
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import st_audiorec
-from gtts import gTTS  # <<< ADDED IMPORT
+from gtts import gTTS
+import numpy as np  # <<< ADDED IMPORT
+from config import KERALA_DISTRICTS
+# <<< ADDED IMPORT
 
 # -------------------- Configuration --------------------
 API_URL = "http://localhost:8000"
@@ -97,6 +100,27 @@ def send_message(thread_id: str, messages: List[Dict], language: str = "English"
         st.error(f"Failed to send message: {e}")
         return []
 
+
+def log_feedback(thread_id: str, msg_index: int, rating: int):
+    """Logs feedback for a specific message."""
+    try:
+        payload = {"thread_id": thread_id, "message_index": msg_index, "rating": rating}
+        requests.post(f"{API_URL}/log-feedback", json=payload, timeout=10)
+    except requests.exceptions.RequestException as e:
+        # Fail silently on the frontend or show a minor error
+        print(f"Could not log feedback: {e}")
+
+def escalate_to_expert(thread_id: str):
+    """Calls the backend to escalate a conversation."""
+    try:
+        payload = {"thread_id": thread_id}
+        response = requests.post(f"{API_URL}/escalate-query", json=payload, timeout=30)
+        response.raise_for_status()
+        st.success("✅ Your query has been sent to an expert for review!")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to escalate query: {e}")
+
+
 # -------------------- Session State Initialization --------------------
 # (Combined the duplicated blocks for cleanliness)
 if 'thread_id' not in st.session_state:
@@ -114,6 +138,9 @@ if 'voice_lang' not in st.session_state:
     st.session_state.voice_lang = "English"
 if 'last_transcription' not in st.session_state:
     st.session_state.last_transcription = ""
+
+if 'feedback' not in st.session_state:
+    st.session_state.feedback = {}
 
 # -------------------- Sidebar Controls --------------------
 with st.sidebar:
@@ -194,7 +221,7 @@ tab1, tab2, tab3 = st.tabs(["💬 Ask Expert", "🌿 Crop Disease Detection", "�
 with tab1:
     chat_container = st.container(height=400)
 
-    # <<< MODIFICATION START: Updated chat display loop
+    
     with chat_container:
         # We use enumerate to get an index for unique keys
         for idx, msg in enumerate(st.session_state.message_history):
@@ -204,14 +231,46 @@ with tab1:
                 st.markdown(content)
                 # Add the "Read Aloud" button only for assistant messages
                 if role == 'assistant':
-                    # Use a unique key for each button based on the message index
-                    button_key = f"read_aloud_btn_{idx}"
-                    if st.button("🔊 Read Aloud", key=button_key):
-                        # Generate audio from the message content and selected language
-                        audio_bytes = text_to_speech(content, language)
-                        if audio_bytes:
-                            # Display the audio player
-                            st.audio(audio_bytes, format="audio/mp3")
+                    feedback_key = f"feedback_{idx}"
+                    feedback_given = st.session_state.feedback.get(feedback_key)
+                    # We create 5 columns to neatly space out all the buttons
+                    col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 5])
+                    
+                    # Column 1: Read Aloud Button
+                    with col1:
+                        if st.button("🔊 Read", key=f"read_aloud_{idx}"):
+                            audio_bytes = text_to_speech(content, language)
+                            if audio_bytes:
+                                # Display the audio player right below the button
+                                st.audio(audio_bytes, format="audio/mp3")
+
+                    # Column 2: Thumbs Up Button
+                    with col2:
+                        if st.button("👍", key=f"thumbs_up_{idx}", disabled=bool(feedback_given)):
+                            st.session_state.feedback[feedback_key] = "👍"
+                            log_feedback(st.session_state.thread_id, idx, 1)
+                            st.rerun()
+                    
+                    # Column 3: Thumbs Down Button
+                    with col3:
+                        if st.button("👎", key=f"thumbs_down_{idx}", disabled=bool(feedback_given)):
+                            st.session_state.feedback[feedback_key] = "👎"
+                            log_feedback(st.session_state.thread_id, idx, -1)
+                            st.rerun()
+
+                    # Column 4: Conditional Escalate Button
+                    # This only appears if the user has clicked "👎"
+                    if st.session_state.feedback.get(feedback_key) == "👎":
+                        with col4:
+                            if st.button("Escalate", key=f"escalate_{idx}"):
+                                escalate_to_expert(st.session_state.thread_id)
+                                st.session_state.feedback[feedback_key] = "escalated"
+                    
+                    # Display confirmation messages below the main content
+                    if st.session_state.feedback.get(feedback_key) == "👍":
+                        st.caption("Thanks for your feedback!")
+                    if st.session_state.feedback.get(feedback_key) == "escalated":
+                        st.caption("This query has been escalated to an expert.")
     # <<< MODIFICATION END
 
     user_input = None
@@ -343,6 +402,7 @@ with tab2:
 
 # -------------------- Dashboard Tab --------------------
 with tab3:
-    st.header("📊 Dashboard")
-    st.info("This section is under development. Future features will include market prices, weather forecasts, and personalized farm analytics.")
-    st.warning("Coming Soon!")
+    st.header("🌾 Find the Best Crop for Your Land (Automated)")
+    st.info("Upload your Soil Health Card and select your district to automatically fill the form.")
+
+    

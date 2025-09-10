@@ -140,25 +140,47 @@ conn = sqlite3.connect(database=db_path, check_same_thread=False)
 checkpointer = SqliteSaver(conn=conn)
 def create_db_and_tables():
     print("--- Initializing Database ---")
-    conn = sqlite3.connect("chatbot.db")
-    cursor = conn.cursor()
+    # Use a temporary connection for setup to avoid conflicts
+    setup_conn = sqlite3.connect(db_path)
+    cursor = setup_conn.cursor()
 
-    # Your SQL command to create the users table
-    create_table_sql = """
+    # Create users table
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         phone_number TEXT NOT NULL UNIQUE,
         district TEXT NOT NULL,
         primary_crop TEXT
     );
-    """
-
-    cursor.execute(create_table_sql)
+    """)
     print("Table 'users' created or already exists.")
+    
+    # Create escalations table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS escalations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        thread_id TEXT NOT NULL,
+        chat_history TEXT,
+        status TEXT DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    print("Table 'escalations' created or already exists.")
+    
+    # Create feedback table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        thread_id TEXT NOT NULL,
+        message_index INTEGER NOT NULL,
+        rating INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    print("Table 'feedback' created or already exists.")
 
-    conn.commit()
-    conn.close()
-
+    setup_conn.commit()
+    setup_conn.close()
 create_db_and_tables()    
     
 graph = StateGraph(ChatState)
@@ -225,7 +247,13 @@ class UserProfile(BaseModel):
     phone_number: str
     district: str
     primary_crop: Optional[str] = None
+class FeedbackRequest(BaseModel):
+    thread_id: str
+    message_index: int
+    rating: int # e.g., 1 for upvote, -1 for downvote
 
+class EscalateRequest(BaseModel):
+    thread_id: str
 # -------------------- Utility Functions --------------------
 def generate_thread_id():
     return str(uuid.uuid4())
@@ -528,6 +556,50 @@ async def predict_disease(file: UploadFile = File(...)):
         if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/log-feedback")
+def log_feedback(request: FeedbackRequest):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO feedback (thread_id, message_index, rating) VALUES (?, ?, ?)",
+                (request.thread_id, request.message_index, request.rating)
+            )
+            conn.commit()
+        return {"status": "success", "message": "Feedback logged."}
+    except Exception as e:
+        logger.error(f"Feedback logging error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/escalate-query")
+def escalate_query(request: EscalateRequest):
+    try:
+        # Get the full conversation history for the thread
+        thread_state = chatbot.get_state(config={'configurable': {'thread_id': request.thread_id}})
+        if not thread_state:
+            raise HTTPException(status_code=404, detail="Thread not found.")
+
+        messages = thread_state.values.get('messages', [])
+        # Convert messages to a JSON-serializable format
+        history_list = [{"type": msg.__class__.__name__, "content": msg.content} for msg in messages]
+        chat_history_json = json.dumps(history_list, indent=2)
+
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO escalations (thread_id, chat_history) VALUES (?, ?)",
+                (request.thread_id, chat_history_json)
+            )
+            conn.commit()
+        
+        return {"status": "success", "message": "Query has been escalated to an expert."}
+    except Exception as e:
+        logger.error(f"Escalation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 if __name__ == "__main__":
     import uvicorn

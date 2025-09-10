@@ -6,6 +6,7 @@ import sqlite3
 from twilio.rest import Client
 from dotenv import load_dotenv
 load_dotenv()
+from config import KERALA_DISTRICTS
 # --- Configuration ---
 # Store these in your .env file and load them using load_dotenv()
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
@@ -15,11 +16,6 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 DB_PATH = "chatbot.db" # Path to your SQLite database
 
 # A map of districts to their rough coordinates for the weather API
-KERALA_DISTRICTS = {
-    "Thrissur": {"lat": 10.52, "lon": 76.21},
-    "Palakkad": {"lat": 10.78, "lon": 76.65},
-    # Add other districts as needed
-}
 
 def get_weather_data(lat, lon):
     """Fetches 5-day weather forecast from OpenWeatherMap."""
