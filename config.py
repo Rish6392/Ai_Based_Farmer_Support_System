@@ -17,3 +17,21 @@ KERALA_DISTRICTS = {
     "Thrissur": {"lat": 10.5276, "lon": 76.2144},
     "Wayanad": {"lat": 11.6854, "lon": 76.1320},
 }
+
+
+KERALA_DISTRICT_COORDS = {
+    "Thiruvananthapuram": (8.5241, 76.9366),
+    "Kollam": (8.8932, 76.6141),
+    "Pathanamthitta": (9.2648, 76.7870),
+    "Alappuzha": (9.4981, 76.3388),
+    "Kottayam": (9.5914, 76.5222),
+    "Idukki": (9.9769, 77.0152),
+    "Ernakulam": (9.9816, 76.2996),
+    "Thrissur": (10.5276, 76.2144),
+    "Palakkad": (10.7867, 76.6548),
+    "Malappuram": (11.0514, 76.0715),
+    "Kozhikode": (11.2588, 75.7804),
+    "Wayanad": (11.6854, 76.1320),
+    "Kannur": (11.8745, 75.3704),
+    "Kasaragod": (12.4993, 74.9868)
+}

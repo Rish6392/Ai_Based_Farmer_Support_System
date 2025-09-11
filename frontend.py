@@ -6,20 +6,113 @@ import uuid
 import json
 import pandas as pd
 import io  # <<< ADDED IMPORT
-
+import pickle
 # To be installed: pip install streamlit-webrtc st_audiorec pandas gtts
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import st_audiorec
+from datetime import datetime
 from gtts import gTTS
 import numpy as np  # <<< ADDED IMPORT
-from config import KERALA_DISTRICTS
+from config import KERALA_DISTRICTS , KERALA_DISTRICT_COORDS
 # <<< ADDED IMPORT
 
 # -------------------- Configuration --------------------
 API_URL = "http://localhost:8000"
-
+MODEL_PATH = "models/" 
 # -------------------- Utility Functions --------------------
+CROP_SCHEDULES = {
+    "Paddy-I (Kharif) - North Kerala": [
+        {'stage': 'Sowing', 'start_week': 17},
+        {'stage': 'Transplanting', 'start_week': 21},
+        {'stage': 'Vegetative Growth', 'start_week': 24},
+        {'stage': 'Flowering', 'start_week': 30},
+        {'stage': 'Grain Formation', 'start_week': 33},
+        {'stage': 'Harvesting', 'start_week': 36}
+    ],
+    "Paddy-II (Rabi) - Central Kerala": [
+        {'stage': 'Sowing', 'start_week': 31},
+        {'stage': 'Transplanting', 'start_week': 35},
+        {'stage': 'Vegetative Growth', 'start_week': 38},
+        {'stage': 'Flowering', 'start_week': 42},
+        {'stage': 'Grain Formation', 'start_week': 45},
+        {'stage': 'Harvesting', 'start_week': 49}
+    ]
+    # You can add more crops here by extracting data from the PDF
+}
 
+def get_weather_data(lat: float, lon: float, api_key: str) -> Dict:
+    """
+    Fetches weather data using the 5-day/3-hour forecast endpoint
+    and calculates total rainfall for the next 24 hours.
+    """
+    # Use the 'forecast' endpoint instead of 'weather'
+    url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        # The API returns a list of forecasts in 3-hour intervals
+        forecast_list = data.get('list', [])
+        if not forecast_list:
+            st.error("No forecast data available from API.")
+            return None
+
+        # Take the temperature and humidity from the very first forecast period (the most current)
+        current_forecast = forecast_list[0]
+        temperature = current_forecast.get("main", {}).get("temp")
+        humidity = current_forecast.get("main", {}).get("humidity")
+
+        # Calculate total rainfall for the next 24 hours (8 periods of 3 hours)
+        total_rainfall = 0
+        for period in forecast_list[:8]: # The first 8 periods = 24 hours
+            # The rain volume is under '3h' key for the forecast API
+            rain_volume = period.get('rain', {}).get('3h', 0)
+            total_rainfall += rain_volume
+
+        if temperature is not None and humidity is not None:
+            return {
+                "temperature": temperature,
+                "humidity": humidity,
+                "rainfall": total_rainfall
+            }
+        else:
+            st.error("Weather data format from API is unexpected.")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to connect to weather service: {e}")
+        return None
+    except Exception as e:
+        st.error(f"An error occurred while fetching weather data: {e}")
+        return None
+
+
+@st.cache_resource(show_spinner="Loading crop prediction model...")
+def load_crop_model():
+    """
+    Loads the preprocessor and model from disk.
+    Uses caching to ensure this is only done once per session.
+    """
+    try:
+        preprocessor_path = os.path.join(MODEL_PATH, "preprocessor.pkl")
+        model_path = os.path.join(MODEL_PATH, "model.pkl")
+
+        with open(preprocessor_path, 'rb') as f:
+            preprocessor = pickle.load(f)
+
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+
+        return preprocessor, model
+    except FileNotFoundError:
+        st.error(f"Model or preprocessor file not found in '{MODEL_PATH}' directory. Please make sure 'preprocessor.pkl' and 'model.pkl' are present.")
+        return None, None
+    except Exception as e:
+        st.error(f"An error occurred while loading the models: {e}")
+        return None, None
+    
+    
 # <<< NEW FUNCTION START: Text-to-Speech conversion
 @st.cache_data(show_spinner="Generating audio...")
 def text_to_speech(text: str, language: str) -> bytes:
@@ -142,6 +235,15 @@ if 'last_transcription' not in st.session_state:
 if 'feedback' not in st.session_state:
     st.session_state.feedback = {}
 
+if 'temp_val' not in st.session_state:
+    st.session_state.temp_val = 25.5
+    
+if 'humidity_val' not in st.session_state:
+    st.session_state.humidity_val = 75.0
+    
+if 'rainfall_val' not in st.session_state:
+    st.session_state.rainfall_val = 200.0
+
 # -------------------- Sidebar Controls --------------------
 with st.sidebar:
     st.title("⚙️ Controls")
@@ -162,7 +264,16 @@ with st.sidebar:
         ["English", "Malayalam", "Hindi", "Spanish", "French", "German", "Chinese", "Arabic"],
         index=0
     )
-
+    
+    st.divider()
+    st.subheader("🌦️ Weather Data")
+    api_key_input = st.text_input("Enter OpenWeather API Key", type="password", help="Get a free key from openweathermap.org")
+    selected_district = st.selectbox(
+        "Select Your District",
+        options=list(KERALA_DISTRICT_COORDS.keys()),
+        index=0 # Default to the first district
+    )
+    
     st.divider()
     st.subheader("🎤 Voice Input")
     st.info("Record your question here.")
@@ -215,7 +326,12 @@ st.set_page_config(page_title="Digital Krishi Officer", page_icon="🌾", layout
 st.title("🌾 Digital Krishi Officer - കൃഷി സഹായി")
 st.caption("AI-powered farming assistant for Kerala farmers")
 
-tab1, tab2, tab3 = st.tabs(["💬 Ask Expert", "🌿 Crop Disease Detection", "📊 Dashboard"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "💬 Ask Expert",
+    "🌿 Crop Disease Detection",
+    "📊 Crop Recommender",
+    "🗓️ Crop Schedule Planner"
+])
 
 # -------------------- Chatbot Tab --------------------
 with tab1:
@@ -402,7 +518,183 @@ with tab2:
 
 # -------------------- Dashboard Tab --------------------
 with tab3:
-    st.header("🌾 Find the Best Crop for Your Land (Automated)")
-    st.info("Upload your Soil Health Card and select your district to automatically fill the form.")
+    st.header("🌱 Find the Best Crop for Your Land")
+    st.info("Enter your soil and environmental conditions below to get a crop recommendation.")
 
+    # Load the preprocessor and model
+    preprocessor, model = load_crop_model()
+
+    if preprocessor and model:
+        if st.button("Fetch Live Weather Data for Selected District", use_container_width=True):
+            if not api_key_input:
+                st.error("Please enter your OpenWeather API key in the sidebar.")
+            else:
+                with st.spinner(f"Fetching weather for {selected_district}..."):
+                    coords = KERALA_DISTRICT_COORDS[selected_district]
+                    weather_data = get_weather_data(coords[0], coords[1], api_key_input)
+                    if weather_data:
+                        # Update session state, which will automatically update the widgets
+                        st.session_state.temp_val = round(weather_data["temperature"], 1)
+                        st.session_state.humidity_val = round(weather_data["humidity"], 1)
+                        st.session_state.rainfall_val = round(weather_data["rainfall"], 1)
+                        st.success("✅ Weather data fetched and updated below!")
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            n_val = st.number_input("Nitrogen (N) Ratio in Soil", min_value=0, max_value=150, value=90, help="e.g., 90 kg/ha")
+            p_val = st.number_input("Phosphorous (P) Ratio in Soil", min_value=0, max_value=150, value=45, help="e.g., 45 kg/ha")
+            k_val = st.number_input("Potassium (K) Ratio in Soil", min_value=0, max_value=210, value=45, help="e.g., 45 kg/ha")
+            ph_val = st.number_input("Soil pH Value", min_value=0.0, max_value=14.0, value=6.5, step=0.1, help="Scale from 0-14")
+
+        with col2:
+            temp_val = st.slider("Temperature (°C)", min_value=0.0, max_value=50.0, value=float(st.session_state.temp_val), step=0.1)
     
+            humidity_val = st.slider("Relative Humidity (%)", min_value=0.0, max_value=100.0, value=float(st.session_state.humidity_val), step=0.1)
+
+            rainfall_val = st.number_input("Seasonal Rainfall (mm)",min_value=0.0,max_value=400.0,value=200.0, step=0.1,help="Enter the average rainfall for the entire crop season in mm (e.g., 250).")
+        st.divider()
+
+        if st.button("🌾 Predict Best Crop", use_container_width=True, type="primary"):
+            try:
+                # Create a DataFrame from the inputs in the correct order
+                input_data = pd.DataFrame({
+                    'N': [n_val],
+                    'P': [p_val],
+                    'K': [k_val],
+                    'temperature': [temp_val],
+                    'humidity': [humidity_val],
+                    'ph': [ph_val],
+                    'rainfall': [rainfall_val]
+                })
+
+                # 1. Scale the input data using the loaded preprocessor
+                scaled_data = preprocessor.transform(input_data)
+                
+                # 2. Make a prediction using the loaded model
+                prediction = model.predict(scaled_data)
+                
+                # 3. Display the result
+                predicted_crop = prediction[0]
+                st.success(f"### The recommended crop for these conditions is: **{predicted_crop.title()}**")
+
+                # Add a button to ask the chatbot about this crop
+                if st.button(f"💬 Ask about growing {predicted_crop.title()}"):
+                    question = f"The model recommended I grow '{predicted_crop}'. Can you give me a guide on how to cultivate it in Kerala?"
+                    st.session_state.pending_input = question
+                    st.info("Go to the 'Ask Expert' tab to see the question.")
+                    st.rerun()
+
+            except Exception as e:
+                st.error(f"An error occurred during prediction: {e}")
+    else:
+        st.warning("Crop recommendation model is currently unavailable. Please check the server logs.")
+
+
+
+with tab4:
+    st.header("🗓️ Crop Activity Planner (AI-Powered)")
+    st.info(
+        "Select a crop and your last activity. The AI assistant will read the "
+        "Crop Weather Calendar to find the next step in your schedule."
+    )
+
+    crop_options = [
+        "Paddy-I (Early Kharif)", "Paddy-II (Rabi)", "Coconut",
+        "Pepper", "Banana", "Coffee", "Tapioca"
+    ]
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        selected_crop_name = st.selectbox(
+            "1. Select your Crop Type", options=crop_options
+        )
+        last_activity = st.text_input(
+            "2. What activity did you just complete?",
+            placeholder="e.g., Sowing, Transplanting, Flowering"
+        )
+        activity_date = st.date_input(
+            "3. On what date did you complete it?", value=datetime.today()
+        )
+
+    with col2:
+        st.write("### AI-Generated Next Steps")
+        if st.button("🤖 Ask Assistant for Next Step"):
+            if not last_activity:
+                st.warning("Please enter the activity you completed.")
+            else:
+                with st.spinner("Analyzing your schedule..."):
+                    # 1. --- THE NEW, MORE PRECISE PROMPT ---
+                    prompt = f"""
+                    You are an agricultural schedule analyst. Your task is to analyze the "Crop Weather Calendar for Kerala" document to provide a clear status and identify the next farming activity.
+
+                    CONTEXT:
+                    - Crop: "{selected_crop_name}"
+                    - Activity Just Completed: "{last_activity}"
+                    - Date of Completion: "{activity_date.strftime('%Y-%m-%d')}"
+
+                    INSTRUCTIONS:
+                    1.  **Find the Schedule:** Locate the specific calendar page for the "{selected_crop_name}".
+                    2.  **Analyze the Main Timeline:** Focus *only* on the main timeline diagram that maps crop stages (Sowing, Transplanting, Veg. Growth, etc.) to "Standard weeks".
+                    3.  **Determine Status of Completed Activity:**
+                        a. From the timeline, find the standard week range for the "{last_activity}".
+                        b. Determine the week number of the user's "{activity_date.strftime('%Y-%m-%d')}".
+                        c. Compare the user's week to the standard range. The status must be "On Schedule" if the user's week is within the range, "Early" if before the range, and "Late" if after the range.
+                    4.  **Identify the Correct Next Activity:**
+                        a. In the main timeline diagram, find the stage that *immediately follows* "{last_activity}". This is the `next_activity`. Do not invent stages like 'Nursery' if they are not in the main sequence.
+                    5.  **Calculate Timing for Next Activity:**
+                        a. Find the standard start week for the `next_activity`.
+                        b. Calculate the estimated start date for this next activity based on its standard week in the current year.
+
+                    OUTPUT FORMAT:
+                    Respond ONLY with a valid JSON object in this exact format. Do not add any explanation.
+                    {{
+                      "completed_activity_status": "On Schedule / Early / Late",
+                      "next_activity": "Name of the next stage from the timeline",
+                      "advice": "A short, helpful sentence based on the status and next step.",
+                      "next_activity_start_date": "YYYY-MM-DD"
+                    }}
+                    """
+
+                    # 2. --- SEND TO BACKEND (Unchanged) ---
+                    ai_response_list = send_message(
+                        thread_id=str(uuid.uuid4()),
+                        messages=[{"role": "user", "content": prompt}],
+                        language=language
+                    )
+
+                    # 3. --- NEW PARSING & DISPLAY LOGIC ---
+                    if ai_response_list and 'content' in ai_response_list[0]:
+                        try:
+                            response_text = ai_response_list[0]['content']
+                            json_start = response_text.find('{')
+                            json_end = response_text.rfind('}') + 1
+                            json_string = response_text[json_start:json_end]
+                            data = json.loads(json_string)
+
+                            status = data.get("completed_activity_status", "N/A")
+                            advice = data.get("advice", "")
+                            next_activity = data.get("next_activity", "N/A")
+                            next_date_str = data.get("next_activity_start_date")
+
+                            # Display status with a color-coded message
+                            if status == "Late":
+                                st.error(f"**Status for '{last_activity.title()}':** {status}")
+                            elif status == "Early":
+                                st.success(f"**Status for '{last_activity.title()}':** {status}")
+                            else:
+                                st.info(f"**Status for '{last_activity.title()}':** {status}")
+
+                            st.metric(label="Next Activity to Perform", value=next_activity)
+                            
+                            if next_date_str:
+                                next_date_obj = datetime.strptime(next_date_str, "%Y-%m-%d")
+                                st.metric(label="Ideal Start Date for Next Activity", value=next_date_obj.strftime("%B %d, %Y"))
+                            
+                            st.write(f"**Assistant's Advice:** {advice}")
+
+                        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
+                            st.error("The AI assistant returned an unexpected format. Please try again.")
+                            st.code(ai_response_list[0]['content'])
+                    else:
+                        st.error("Failed to get a response from the AI assistant.")

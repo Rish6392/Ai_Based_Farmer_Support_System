@@ -49,3 +49,4 @@ twilio
 easyocr
 pytesseract 
 Pillow
+scikit-learn
