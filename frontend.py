@@ -42,51 +42,85 @@ CROP_SCHEDULES = {
 
 def get_weather_data(lat: float, lon: float, api_key: str) -> Dict:
     """
-    Fetches weather data using the 5-day/3-hour forecast endpoint
-    and calculates total rainfall for the next 24 hours.
+    Fetches weather data for the next 24 hours, including temp, humidity,
+    rainfall, max temp, and max wind speed.
     """
-    # Use the 'forecast' endpoint instead of 'weather'
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
 
-        # The API returns a list of forecasts in 3-hour intervals
         forecast_list = data.get('list', [])
         if not forecast_list:
-            st.error("No forecast data available from API.")
             return None
 
-        # Take the temperature and humidity from the very first forecast period (the most current)
+        # Get current temp/humidity from the first forecast period
         current_forecast = forecast_list[0]
         temperature = current_forecast.get("main", {}).get("temp")
         humidity = current_forecast.get("main", {}).get("humidity")
 
-        # Calculate total rainfall for the next 24 hours (8 periods of 3 hours)
+        # Calculate totals and maximums over the next 24 hours (8 periods)
         total_rainfall = 0
-        for period in forecast_list[:8]: # The first 8 periods = 24 hours
-            # The rain volume is under '3h' key for the forecast API
-            rain_volume = period.get('rain', {}).get('3h', 0)
-            total_rainfall += rain_volume
+        max_temp = -100 # Initialize with a very low number
+        max_wind_speed = 0
+
+        for period in forecast_list[:8]:
+            # Sum rainfall
+            total_rainfall += period.get('rain', {}).get('3h', 0)
+            # Find max temperature
+            if period.get("main", {}).get("temp_max", -100) > max_temp:
+                max_temp = period["main"]["temp_max"]
+            # Find max wind speed
+            if period.get("wind", {}).get("speed", 0) > max_wind_speed:
+                max_wind_speed = period["wind"]["speed"]
 
         if temperature is not None and humidity is not None:
             return {
                 "temperature": temperature,
                 "humidity": humidity,
-                "rainfall": total_rainfall
+                "total_rainfall": total_rainfall,
+                "max_temp": max_temp,
+                "wind_speed": max_wind_speed * 3.6  # Convert m/s to km/h
             }
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            # Give a specific, helpful error for the most common problem
+            st.error("Invalid OpenWeather API Key. Please check the key in the sidebar and make sure it is active.", icon="🔑")
         else:
-            st.error("Weather data format from API is unexpected.")
-            return None
-
+            st.error(f"Weather API request failed with status code {e.response.status_code}.")
+        return None
     except requests.exceptions.RequestException as e:
-        st.error(f"Failed to connect to weather service: {e}")
+        st.error(f"Failed to connect to the weather service. Check your internet connection.")
         return None
-    except Exception as e:
-        st.error(f"An error occurred while fetching weather data: {e}")
-        return None
+def check_for_alerts(weather_data: Dict) -> List:
+    """Checks weather data against predefined thresholds to generate alerts."""
+    alerts = []
+    if not weather_data:
+        return alerts
 
+    # Rule 1: Heavy Rain Warning
+    if weather_data.get("total_rainfall", 0) > 50:
+        alerts.append((
+            "warning",
+            f"**Heavy Rain Warning:** {weather_data['total_rainfall']:.1f} mm of rain expected in the next 24 hours. Ensure proper drainage to avoid waterlogging."
+        ))
+
+    # Rule 2: Heat Stress Alert
+    if weather_data.get("max_temp", 0) > 38:
+        alerts.append((
+            "error",
+            f"**Heat Stress Alert:** Temperature may reach {weather_data['max_temp']:.1f}°C. Provide irrigation to crops to reduce heat stress."
+        ))
+
+    # Rule 3: High Wind Advisory
+    if weather_data.get("wind_speed", 0) > 20:
+        alerts.append((
+            "warning",
+            f"**High Wind Advisory:** Wind speeds may reach {weather_data['wind_speed']:.1f} km/h. Protect young or vulnerable plants."
+        ))
+    
+    return alerts
 
 @st.cache_resource(show_spinner="Loading crop prediction model...")
 def load_crop_model():
@@ -273,6 +307,35 @@ with st.sidebar:
         options=list(KERALA_DISTRICT_COORDS.keys()),
         index=0 # Default to the first district
     )
+    
+    st.divider()
+    st.subheader("🚨 Proactive Alerts")
+    if not api_key_input:
+        st.info("Enter your OpenWeather API key above to activate alerts.")
+    else:
+        # Cache the alert check to avoid calling the API on every single interaction
+        @st.cache_data(ttl=600) # Cache results for 10 minutes
+        def get_alerts_for_district(district, key):
+            coords = KERALA_DISTRICT_COORDS.get(district)
+            if coords:
+                weather_data = get_weather_data(coords[0], coords[1], key)
+                if weather_data:
+                    return check_for_alerts(weather_data)
+            return []
+
+        # Run the alert check
+        alerts = get_alerts_for_district(selected_district, api_key_input)
+
+        if not alerts:
+            st.success("✅ Conditions look good. No alerts for your district.")
+        else:
+            for alert_type, message in alerts:
+                if alert_type == "error":
+                    st.error(message, icon="🔥")
+                elif alert_type == "warning":
+                    st.warning(message, icon="⚠️")
+                else:
+                    st.info(message, icon="ℹ️")
     
     st.divider()
     st.subheader("🎤 Voice Input")
@@ -536,7 +599,7 @@ with tab3:
                         # Update session state, which will automatically update the widgets
                         st.session_state.temp_val = round(weather_data["temperature"], 1)
                         st.session_state.humidity_val = round(weather_data["humidity"], 1)
-                        st.session_state.rainfall_val = round(weather_data["rainfall"], 1)
+                        st.session_state.rainfall_val = round(weather_data["total_rainfall"], 1)
                         st.success("✅ Weather data fetched and updated below!")
         st.markdown("---")
         col1, col2 = st.columns(2)
