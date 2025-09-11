@@ -76,7 +76,10 @@ const Navbar = () => {
             <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-md">
               <span className="text-white font-bold text-lg">🌾</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">KisanSewa</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-gray-900">KisanSewa</span>
+              <span className="text-sm font-medium text-green-600">കർഷക സേവനം</span>
+            </div>
           </div>
 
           {/* Desktop Navigation */}
