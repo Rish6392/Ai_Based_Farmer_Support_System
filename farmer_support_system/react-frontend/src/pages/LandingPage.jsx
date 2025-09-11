@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import { MapPin, Mic, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -17,6 +15,7 @@ import Rectangle7 from '../assets/Rectangle 7.svg';
 import Rectangle8 from '../assets/Rectangle 8.svg';
 import Rectangle9 from '../assets/Rectangle 9.svg';
 import Rectangle11 from '../assets/Rectangle 11.svg';
+import InstallPrompt from '../components/InstallPrompt';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -521,6 +520,8 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      <InstallPrompt />
     </div>
   );
 };

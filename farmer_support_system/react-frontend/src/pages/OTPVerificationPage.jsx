@@ -113,7 +113,7 @@ const OTPVerificationPage = () => {
     }
 
     try {
-      const result = await verifyOTP(otpString);
+      const result = await verifyOTP(otpSession?.phoneNumber, otpString);
       
       if (result.success) {
         if (result.isNewUser) {
@@ -201,7 +201,7 @@ const OTPVerificationPage = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Verify OTP</h1>
           <p className="text-gray-600">
             Enter the 6-digit code sent to{' '}
-            <span className="font-medium">+91 {otpSession?.mobileNumber}</span>
+            <span className="font-medium">+91 {otpSession?.phoneNumber}</span>
           </p>
         </div>
 

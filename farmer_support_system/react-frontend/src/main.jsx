@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.jsx";
 import Providers from "./context/provider.jsx";
+import swDev from "./swDev.js";
+import { initializePWAInstall } from "./pwaInstall.js";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -14,3 +16,11 @@ createRoot(document.getElementById("root")).render(
     </BrowserRouter>
   </StrictMode>
 );
+
+
+swDev(); 
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  initializePWAInstall();
+});

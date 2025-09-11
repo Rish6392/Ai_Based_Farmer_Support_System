@@ -1,180 +1,171 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '../services/authService';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { authService } from '../services';
 
 const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [otpSession, setOtpSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Initialize auth state from localStorage
+  // Check if user is already authenticated on app load
   useEffect(() => {
-    const initializeAuth = async () => {
+    const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('authToken');
-        const userData = localStorage.getItem('userData');
-        
-        if (token && userData) {
-          const parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
+        if (authService.isAuthenticated()) {
+          const userPhone = authService.getCurrentUserPhone();
+          const response = await authService.getUserProfile(userPhone);
+          
+          if (response.success) {
+            setUser(response.user);
+            setIsAuthenticated(true);
+          } else {
+            // Token might be invalid, clear it
+            authService.logout();
+          }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
+        console.error('Error checking auth:', error);
+        authService.logout();
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    initializeAuth();
+    checkAuth();
   }, []);
 
-  // Send OTP to mobile number
-  const sendOTP = async (mobileNumber) => {
+  // Send OTP for login
+  const sendOTPHandler = async (mobileNumber) => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const response = await authService.sendOTP(mobileNumber);
       
+      console.log(response);
       if (response.success) {
         setOtpSession({
-          mobileNumber,
-          sessionId: response.sessionId,
-          expiresAt: Date.now() + (5 * 60 * 1000), // 5 minutes
+          phoneNumber: mobileNumber,
+          expiresAt: response.expiresAt
         });
-        return { success: true, message: 'OTP sent successfully' };
-      } else {
-        return { success: false, message: response.message || 'Failed to send OTP' };
       }
+      
+      return response;
     } catch (error) {
-      console.error('Error sending OTP:', error);
-      return { success: false, message: 'Network error. Please try again.' };
+      console.error('Error in AuthContext.sendOTP:', error);
+      return {
+        success: false,
+        message: 'An error occurred while sending OTP'
+      };
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   // Verify OTP
-  const verifyOTP = async (otp) => {
+  const verifyOTPHandler = async (mobileNumber, otp) => {
     try {
-      setIsLoading(true);
+      setLoading(true);
+      const response = await authService.verifyOTP(mobileNumber, otp);
       
-      if (!otpSession) {
-        return { success: false, message: 'No active OTP session' };
-      }
-
-      if (Date.now() > otpSession.expiresAt) {
-        setOtpSession(null);
-        return { success: false, message: 'OTP has expired' };
-      }
-
-      const response = await authService.verifyOTP({
-        mobileNumber: otpSession.mobileNumber,
-        otp,
-        sessionId: otpSession.sessionId,
-      });
-
       if (response.success) {
         if (response.isNewUser) {
-          // New user - need to complete registration
-          return { 
-            success: true, 
-            isNewUser: true, 
-            mobileNumber: otpSession.mobileNumber 
-          };
+          // User needs to complete registration
+          setOtpSession({
+            phoneNumber: mobileNumber,
+            needsRegistration: true
+          });
         } else {
-          // Existing user - complete login
-          setUser(response.user);
-          setIsAuthenticated(true);
-          localStorage.setItem('authToken', response.token);
-          localStorage.setItem('userData', JSON.stringify(response.user));
-          setOtpSession(null);
-          
-          return { 
-            success: true, 
-            isNewUser: false, 
-            user: response.user 
-          };
+          // Existing user, fetch profile
+          const profileResponse = await authService.getUserProfile(mobileNumber);
+          if (profileResponse.success) {
+            setUser(profileResponse.user);
+            setIsAuthenticated(true);
+            setOtpSession(null);
+          }
         }
-      } else {
-        return { success: false, message: response.message || 'Invalid OTP' };
       }
+      
+      return response;
     } catch (error) {
-      console.error('Error verifying OTP:', error);
-      return { success: false, message: 'Network error. Please try again.' };
+      console.error('Error in AuthContext.verifyOTP:', error);
+      return {
+        success: false,
+        message: 'An error occurred while verifying OTP'
+      };
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   // Complete user registration
-  const completeRegistration = async (userInfo) => {
+  const completeRegistrationHandler = async (registrationData) => {
     try {
-      setIsLoading(true);
+      setLoading(true);
+      const response = await authService.completeRegistration(registrationData);
       
-      const response = await authService.registerUser({
-        mobileNumber: otpSession?.mobileNumber,
-        ...userInfo,
-      });
-
       if (response.success) {
-        setUser(response.user);
-        setIsAuthenticated(true);
-        localStorage.setItem('authToken', response.token);
-        localStorage.setItem('userData', JSON.stringify(response.user));
-        setOtpSession(null);
+        // Fetch user profile after successful registration
+        const userPhone = authService.getCurrentUserPhone();
+        const profileResponse = await authService.getUserProfile(userPhone);
         
-        return { success: true, user: response.user };
-      } else {
-        return { success: false, message: response.message || 'Registration failed' };
+        if (profileResponse.success) {
+          setUser(profileResponse.user);
+          setIsAuthenticated(true);
+          setOtpSession(null);
+        }
       }
+      
+      return response;
     } catch (error) {
-      console.error('Error completing registration:', error);
-      return { success: false, message: 'Network error. Please try again.' };
+      console.error('Error in AuthContext.completeRegistration:', error);
+      return {
+        success: false,
+        message: 'An error occurred while completing registration'
+      };
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
-
-  // Logout
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    setOtpSession(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
   };
 
   // Resend OTP
-  const resendOTP = async () => {
-    if (!otpSession) {
-      return { success: false, message: 'No active session' };
+  const resendOTPHandler = async () => {
+    try {
+      if (!otpSession?.phoneNumber) {
+        return {
+          success: false,
+          message: 'No active OTP session found'
+        };
+      }
+      
+      return await sendOTPHandler(otpSession.phoneNumber);
+    } catch (error) {
+      console.error('Error in AuthContext.resendOTP:', error);
+      return {
+        success: false,
+        message: 'An error occurred while resending OTP'
+      };
     }
-    
-    return await sendOTP(otpSession.mobileNumber);
+  };
+
+  // Logout user
+  const logoutHandler = () => {
+    authService.logout();
+    setUser(null);
+    setIsAuthenticated(false);
+    setOtpSession(null);
   };
 
   const value = {
     user,
     isAuthenticated,
-    isLoading,
     otpSession,
-    sendOTP,
-    verifyOTP,
-    completeRegistration,
-    logout,
-    resendOTP,
+    loading,
+    sendOTP: sendOTPHandler,
+    verifyOTP: verifyOTPHandler,
+    completeRegistration: completeRegistrationHandler,
+    resendOTP: resendOTPHandler,
+    logout: logoutHandler
   };
 
   return (
@@ -184,4 +175,10 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext;
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

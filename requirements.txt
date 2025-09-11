@@ -46,3 +46,6 @@ gTTS
 apscheduler
 requests
 twilio
+easyocr
+pytesseract 
+Pillow

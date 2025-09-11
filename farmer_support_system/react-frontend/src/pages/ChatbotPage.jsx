@@ -1,8 +1,87 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Bot, User, Plus } from 'lucide-react';
+import { Send, Mic, MicOff, Bot, User, Plus, Volume2 } from 'lucide-react';
 import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
 import { chatService } from '../services';
 import VoiceRecorder from '../components/VoiceRecorder';
+import ReactMarkdown from 'react-markdown';
+
+// Typing animation component for AI messages
+const TypingMessage = ({ content, isTyping, onTypingComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasCompleted, setHasCompleted] = useState(false);
+  const typingIntervalRef = useRef(null);
+
+  useEffect(() => {
+    // Clear any existing interval
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+
+    // If not typing or already completed, show full content immediately
+    if (!isTyping || hasCompleted) {
+      setDisplayedText(content);
+      setCurrentIndex(content.length);
+      return;
+    }
+
+    // Reset state for new typing animation
+    setDisplayedText('');
+    setCurrentIndex(0);
+    setHasCompleted(false);
+
+    // Start typing animation with a small delay
+    const startDelay = setTimeout(() => {
+      typingIntervalRef.current = setInterval(() => {
+        setCurrentIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          
+          if (nextIndex > content.length) {
+            clearInterval(typingIntervalRef.current);
+            setHasCompleted(true);
+            onTypingComplete && onTypingComplete();
+            return content.length;
+          }
+
+          setDisplayedText(content.substring(0, nextIndex));
+          return nextIndex;
+        });
+      }, 10); // Changed from 30ms to 10ms for 3x faster typing speed
+    }, 100);
+
+    return () => {
+      clearTimeout(startDelay);
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, [content, isTyping]); // Removed onTypingComplete from dependencies to prevent loops
+
+  return (
+    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+      <ReactMarkdown
+        components={{
+          // Custom styling for markdown elements
+          p: ({ children }) => <p className="mb-2 last:mb-0 text-sm leading-relaxed">{children}</p>,
+          strong: ({ children }) => <strong className="font-semibold text-green-700">{children}</strong>,
+          em: ({ children }) => <em className="italic text-gray-700">{children}</em>,
+          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="text-sm">{children}</li>,
+          code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
+          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-green-800">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-base font-bold mb-2 text-green-700">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 text-green-600">{children}</h3>,
+        }}
+      >
+        {displayedText}
+      </ReactMarkdown>
+      {isTyping && !hasCompleted && currentIndex < content.length && (
+        <span className="animate-pulse text-green-400 ml-1 font-bold">|</span>
+      )}
+    </div>
+  );
+};
 
 const ChatbotPage = () => {
   const [messages, setMessages] = useState([]);
@@ -16,6 +95,9 @@ const ChatbotPage = () => {
   });
   const [threads, setThreads] = useState([]);
   const [currentThreadId, setCurrentThreadId] = useState('default-thread');
+  const [typingMessageIndex, setTypingMessageIndex] = useState(null); // Track which message is typing
+  const [playingAudio, setPlayingAudio] = useState(null); // Track which message is playing audio
+  const [ttsLoading, setTtsLoading] = useState({}); // Track TTS loading state per message
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -29,11 +111,17 @@ const ChatbotPage = () => {
   // Initialize with welcome message
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{
+      const welcomeMessage = {
         role: 'assistant',
         content: "Hello! I'm your AI farming assistant. How can I help you today?",
         timestamp: new Date().toISOString()
-      }]);
+      };
+      setMessages([welcomeMessage]);
+      
+      // Start typing animation after message is set
+      setTimeout(() => {
+        setTypingMessageIndex(0);
+      }, 30);
     }
   }, []);
 
@@ -104,12 +192,25 @@ const ChatbotPage = () => {
       const aiMessages = await chatService.sendMessage(currentThreadId, apiMessages, language);
       
       if (aiMessages && aiMessages.length > 0) {
-        aiMessages.forEach(msg => {
-          const messageWithTimestamp = {
-            ...msg,
-            timestamp: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, messageWithTimestamp]);
+        // Add all AI messages first
+        const newAIMessages = aiMessages.map(msg => ({
+          ...msg,
+          timestamp: new Date().toISOString()
+        }));
+
+        setMessages(prev => {
+          const updatedMessages = [...prev, ...newAIMessages];
+          
+          // Set typing animation for the last AI message
+          const lastAIMessageIndex = updatedMessages.length - 1;
+          if (newAIMessages[newAIMessages.length - 1].role === 'assistant') {
+            // Use setTimeout to trigger typing after render
+            setTimeout(() => {
+              setTypingMessageIndex(lastAIMessageIndex);
+            }, 20);
+          }
+          
+          return updatedMessages;
         });
       }
     } catch (error) {
@@ -119,7 +220,16 @@ const ChatbotPage = () => {
         content: `Failed to send message: ${error.message}. Please check if the backend server is running on http://localhost:8000`,
         timestamp: new Date().toISOString()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const newMessages = [...prev, errorMessage];
+        
+        // Start typing animation for error message
+        setTimeout(() => {
+          setTypingMessageIndex(newMessages.length - 1);
+        }, 20);
+        
+        return newMessages;
+      });
     } finally {
       if (manageLoading) {
         setIsLoading(false);
@@ -135,12 +245,18 @@ const ChatbotPage = () => {
   };
 
   const handleNewChat = () => {
-    setMessages([{
+    const welcomeMessage = {
       role: 'assistant',
       content: "Hello! I'm your AI farming assistant. How can I help you today?",
       timestamp: new Date().toISOString()
-    }]);
+    };
+    setMessages([welcomeMessage]);
     setCurrentThreadId('default-thread');
+    
+    // Start typing animation for new welcome message
+    setTimeout(() => {
+      setTypingMessageIndex(0);
+    }, 10);
   };
 
   const handleVoiceQuery = async (audioFile, language) => {
@@ -184,7 +300,16 @@ const ChatbotPage = () => {
           timestamp: new Date().toISOString(),
         };
         
-        setMessages(prev => [...prev, userMessage, aiMessage]);
+        setMessages(prev => {
+          const newMessages = [...prev, userMessage, aiMessage];
+          
+          // Start typing animation for AI response
+          setTimeout(() => {
+            setTypingMessageIndex(newMessages.length - 1);
+          }, 10);
+          
+          return newMessages;
+        });
       }
     } catch (error) {
       console.error('Voice query failed:', error);
@@ -193,9 +318,85 @@ const ChatbotPage = () => {
         content: `Sorry, I couldn't process your voice query. Error: ${error.message}`,
         timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const newMessages = [...prev, errorMessage];
+        
+        // Start typing animation for error message
+        setTimeout(() => {
+          setTypingMessageIndex(newMessages.length - 1);
+        }, 10);
+        
+        return newMessages;
+      });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Utility function to clean markdown formatting for text-to-speech
+  const cleanMarkdownForTTS = (text) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold **text**
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic *text*
+      .replace(/`(.*?)`/g, '$1') // Remove code `text`
+      .replace(/#{1,6}\s/g, '') // Remove headers # ## ###
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links [text](url) -> text
+      .replace(/^\s*[-*+]\s/gm, '') // Remove list bullets
+      .replace(/^\s*\d+\.\s/gm, '') // Remove numbered lists
+      .replace(/\n{2,}/g, '. ') // Replace multiple newlines with period and space
+      .replace(/\n/g, ' ') // Replace single newlines with space
+      .trim();
+  };
+
+  const handleTextToSpeech = async (text, messageIndex) => {
+    try {
+      // Stop any currently playing audio
+      if (playingAudio) {
+        playingAudio.pause();
+        setPlayingAudio(null);
+      }
+
+      // Set loading state for this message
+      setTtsLoading(prev => ({ ...prev, [messageIndex]: true }));
+
+      // Clean markdown formatting from text before sending to TTS
+      const cleanText = cleanMarkdownForTTS(text);
+
+      // Call TTS service
+      const result = await chatService.textToSpeech(cleanText, language);
+      
+      if (result.success && result.audio_data) {
+        // Convert base64 to audio blob
+        const audioBytes = atob(result.audio_data);
+        const audioArray = new Uint8Array(audioBytes.length);
+        for (let i = 0; i < audioBytes.length; i++) {
+          audioArray[i] = audioBytes.charCodeAt(i);
+        }
+        const audioBlob = new Blob([audioArray], { type: 'audio/mp3' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Create and play audio
+        const audio = new Audio(audioUrl);
+        setPlayingAudio(audio);
+        
+        audio.onended = () => {
+          setPlayingAudio(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        audio.onerror = () => {
+          console.error('Audio playback failed');
+          setPlayingAudio(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        await audio.play();
+      }
+    } catch (error) {
+      console.error('Text-to-speech failed:', error);
+      // Could show a toast or error message here
+    } finally {
+      setTtsLoading(prev => ({ ...prev, [messageIndex]: false }));
     }
   };
 
@@ -257,17 +458,55 @@ const ChatbotPage = () => {
                         ? 'bg-blue-500 text-white rounded-br-md'
                         : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
                     }`}>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      {message.role === 'assistant' ? (
+                        <TypingMessage
+                          content={message.content}
+                          isTyping={typingMessageIndex === index}
+                          onTypingComplete={() => setTypingMessageIndex(null)}
+                        />
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="text-sm leading-relaxed mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            ul: ({ children }) => <ul className="list-disc list-inside space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="text-sm">{children}</li>,
+                            code: ({ children }) => <code className="bg-blue-400 bg-opacity-50 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 px-2">
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-500 px-2">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </p>
+                      
+                      {/* Read Aloud Button for Assistant Messages */}
+                      {message.role === 'assistant' && (
+                        <button
+                          onClick={() => handleTextToSpeech(message.content, index)}
+                          disabled={ttsLoading[index] || typingMessageIndex === index}
+                          className="ml-2 p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Read aloud"
+                        >
+                          {ttsLoading[index] ? (
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-green-600 rounded-full animate-spin"></div>
+                          ) : (
+                            <Volume2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
 
-              {/* Typing Indicator */}
-              {isLoading && (
+              {/* Thinking Indicator - Only show when waiting for API response, not during typing */}
+              {isLoading && typingMessageIndex === null && (
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
@@ -295,7 +534,8 @@ const ChatbotPage = () => {
                       onKeyPress={handleKeyPress}
                       placeholder="Type your farming question here..."
                       rows={1}
-                      className="w-full resize-none border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      disabled={isLoading}
+                      className="w-full resize-none border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
                         minHeight: '48px',
                         maxHeight: '120px'

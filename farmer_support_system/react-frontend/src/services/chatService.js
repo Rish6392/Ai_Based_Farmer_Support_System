@@ -93,5 +93,20 @@ export const chatService = {
       console.error('Failed to fetch processing status:', error);
       throw new Error('Failed to fetch processing status');
     }
+  },
+
+  // Text-to-speech conversion
+  textToSpeech: async (text, language = 'English') => {
+    try {
+      const payload = {
+        text: text,
+        language: language
+      };
+      const response = await api.post('/text-to-speech', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to convert text to speech:', error);
+      throw new Error('Failed to convert text to speech');
+    }
   }
 };
