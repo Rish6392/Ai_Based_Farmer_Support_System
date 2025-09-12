@@ -136,13 +136,7 @@ const LocationPage = () => {
 
   // Handle weather fetch
   const handleFetchWeather = async () => {
-    if (!formData.apiKey) {
-      setAlerts([{
-        type: 'error',
-        message: 'Please enter your OpenWeather API key first.'
-      }]);
-      return;
-    }
+
 
     setWeatherLoading(true);
     setAlerts([]);
@@ -351,7 +345,7 @@ const LocationPage = () => {
               <Button
                 onClick={handleFetchWeather}
                 loading={weatherLoading}
-                disabled={!formData.apiKey}
+                // disabled={!formData.apiKey}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
               >
                 {weatherLoading ? (

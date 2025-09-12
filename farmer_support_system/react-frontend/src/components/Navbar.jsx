@@ -26,6 +26,9 @@ const Navbar = () => {
   }, []);
 
 
+  useEffect( () => {
+    console.log("user",user);
+  },[user])
 
   const navItems = [
     { 
@@ -122,7 +125,7 @@ const Navbar = () => {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                      <p className="text-xs text-gray-500">+91 {user?.mobileNumber}</p>
+                      <p className="text-xs text-gray-500">+91 {user?.phone_number}</p>
                     </div>
                     <button
                       onClick={handleLogout}
@@ -186,7 +189,7 @@ const Navbar = () => {
                 <div className="border-t border-gray-200 pt-2 mt-2">
                   <div className="px-4 py-2">
                     <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-xs text-gray-500">+91 {user?.mobileNumber}</p>
+                    <p className="text-xs text-gray-500">+91 {user?.phone_number}</p>
                   </div>
                   <button
                     onClick={() => {

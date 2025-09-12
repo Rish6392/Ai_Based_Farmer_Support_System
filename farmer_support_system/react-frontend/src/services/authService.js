@@ -5,13 +5,23 @@ const API_BASE_URL = "http://localhost:8000"; // Update with your backend URL
 // Send OTP to mobile number
 const sendOTP = async (mobileNumber) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ phone_number: mobileNumber }),
-    });
+    // const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify({ phone_number: mobileNumber }),
+    // });
+
+    // Mock response for testing without backend
+    setTimeout(() => {}, 1000); // Simulate network delay
+    let response = {
+      ok: true,
+      error:null,
+      success:true,
+      message: "otp sent successfully",
+      expires_at: new Date(new Date().getTime() + 50 * 60000).toISOString(), // OTP valid for 50 minutes
+    }
 
     console.log("response:", response);
     if (!response.ok) {
@@ -19,7 +29,8 @@ const sendOTP = async (mobileNumber) => {
       throw new Error(errorData.detail || "Failed to send OTP");
     }
 
-    const data = await response.json();
+    // const data = await response.json();
+    const data = await response;
     return {
       success: data.success,
       message: data.message,
@@ -37,23 +48,35 @@ const sendOTP = async (mobileNumber) => {
 // Verify OTP
 const verifyOTP = async (mobileNumber, otp) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        phone_number: mobileNumber,
-        otp_code: otp,
-      }),
-    });
+    // const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify({
+    //     phone_number: mobileNumber,
+    //     otp_code: otp,
+    //   }),
+    // });
 
+    setTimeout( () => {},1000);
+
+    let response = {
+      ok: true,
+      error: null,
+      access_token: "my name is ravi",
+      success:true,
+      message: "otp verified",
+      is_new_user: false,
+
+    }
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || "Failed to verify OTP");
     }
 
-    const data = await response.json();
+    // const data = await response.json();
+    const data = await response;
 
     // Store access token if provided
     if (data.access_token) {
