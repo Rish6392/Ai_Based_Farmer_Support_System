@@ -1,44 +1,84 @@
 import React from 'react';
-import { Tabs } from './components';
-import { ChatPage, DiseasePredictionPage, DashboardPage } from './pages';
-import { ChatProvider, DocumentProvider } from './context';
+import { Routes, Route } from 'react-router-dom';
+import { Layout, ProtectedRoute } from './components';
+import { 
+  LandingPage, 
+  ChatbotPage, 
+  DiseasePredictionPage, 
+  DashboardPage, 
+  ContactPage,
+  FaqPage,
+  NotFoundPage,
+  LoginPage,
+  OTPVerificationPage,
+  UserRegistrationPage 
+} from './pages';
+import { ChatProvider, DocumentProvider, AuthProvider } from './context';
+import { withOTPSession } from './components/ProtectedRoute';
+
+// Wrap OTP-required pages with session check
+const ProtectedOTPVerificationPage = withOTPSession(OTPVerificationPage);
+const ProtectedUserRegistrationPage = withOTPSession(UserRegistrationPage);
 
 function App() {
   return (
-    <ChatProvider>
-      <DocumentProvider>
-        <div className="min-h-screen bg-gray-900 text-white">
-          {/* Header matching Streamlit */}
-          <div className="bg-gray-900 px-6 py-6">
-            <div className="flex items-center mb-2">
-              <div className="text-3xl mr-3">🌾</div>
-              <h1 className="text-4xl font-bold text-white">
-                Digital Krishi Officer - കൃഷി സഹായി
-              </h1>
-            </div>
-            <p className="text-gray-300 text-base ml-12">
-              AI-powered farming assistant for Kerala farmers
-            </p>
-          </div>
-          
-          <main className="px-0">
-            <div className="h-[calc(100vh-140px)]">
-              <Tabs defaultTab={0}>
-                <Tabs.Panel label="💬 Ask Expert">
-                  <ChatPage />
-                </Tabs.Panel>
-                <Tabs.Panel label="🌿 Crop Disease Detection">
-                  <DiseasePredictionPage />
-                </Tabs.Panel>
-                <Tabs.Panel label="📊 Dashboard">
-                  <DashboardPage />
-                </Tabs.Panel>
-              </Tabs>
-            </div>
-          </main>
-        </div>
-      </DocumentProvider>
-    </ChatProvider>
+    <AuthProvider>
+      <ChatProvider>
+        <DocumentProvider>
+          <Routes>
+            {/* Auth routes - no layout */}
+            <Route 
+              path="/login" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <LoginPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/otp-verification" 
+              element={<ProtectedOTPVerificationPage />} 
+            />
+            <Route 
+              path="/user-registration" 
+              element={<ProtectedUserRegistrationPage />} 
+            />
+            
+            {/* Main app routes with layout */}
+            <Route path="/" element={<Layout />}>
+              <Route index element={<LandingPage />} />
+              <Route 
+                path="chat" 
+                element={
+                  // <ProtectedRoute>
+                    <ChatbotPage />
+                  // </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="disease-prediction" 
+                element={
+                  // <ProtectedRoute>
+                    <DiseasePredictionPage />
+                  // </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="dashboard" 
+                element={
+                  // <ProtectedRoute>
+                    <DashboardPage />
+                  //  </ProtectedRoute>
+                } 
+              />
+              <Route path="contact" element={<ContactPage />} />
+              <Route path="faq" element={<FaqPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </DocumentProvider>
+      </ChatProvider>
+    </AuthProvider>
   );
 }
 

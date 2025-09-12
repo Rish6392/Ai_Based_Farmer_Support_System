@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, TypedDict, Annotated
@@ -7,6 +7,11 @@ import tempfile
 import json
 import traceback
 import speech_recognition as sr
+import random
+import datetime
+from twilio.rest import Client
+from gtts import gTTS
+import io
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, BaseMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
@@ -72,6 +77,19 @@ llm = ChatGroq(
     model="groq/compound-mini",
     temperature=0.7,
 )
+
+# -------------------- Twilio Setup --------------------
+try:
+    twilio_client = Client(
+        os.getenv("TWILIO_ACCOUNT_SID"),
+        os.getenv("TWILIO_AUTH_TOKEN")
+    )
+    twilio_phone_number = os.getenv("TWILIO_PHONE_NUMBER")
+    logger.info("Twilio client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Twilio: {e}")
+    twilio_client = None
+    twilio_phone_number = None
 
 # -------------------- LangGraph Setup --------------------
 class ChatState(TypedDict):
@@ -149,11 +167,30 @@ def create_db_and_tables():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         phone_number TEXT NOT NULL UNIQUE,
-        district TEXT NOT NULL,
-        primary_crop TEXT
+        name TEXT,
+        state TEXT,
+        district TEXT,
+        primary_crop TEXT,
+        is_onboarded BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
     print("Table 'users' created or already exists.")
+    
+    # Create OTP sessions table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS otp_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone_number TEXT NOT NULL,
+        otp_code TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        is_verified BOOLEAN DEFAULT FALSE,
+        attempts INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    print("Table 'otp_sessions' created or already exists.")
     
     # Create escalations table
     cursor.execute("""
@@ -243,10 +280,44 @@ class ProcessingStatusResponse(BaseModel):
     total_documents: int
     processed_chunks: int
 
+# Authentication Models
+class SendOTPRequest(BaseModel):
+    phone_number: str
+
+class SendOTPResponse(BaseModel):
+    success: bool
+    message: str
+    expires_at: Optional[str] = None
+
+class VerifyOTPRequest(BaseModel):
+    phone_number: str
+    otp_code: str
+
+class VerifyOTPResponse(BaseModel):
+    success: bool
+    message: str
+    is_new_user: bool
+    access_token: Optional[str] = None
+
+class CompleteRegistrationRequest(BaseModel):
+    phone_number: str
+    name: str
+    state: str
+    district: str
+    primary_crop: str
+
+class CompleteRegistrationResponse(BaseModel):
+    success: bool
+    message: str
+    access_token: Optional[str] = None
+
 class UserProfile(BaseModel):
     phone_number: str
-    district: str
+    name: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
     primary_crop: Optional[str] = None
+    is_onboarded: bool = False
 class FeedbackRequest(BaseModel):
     thread_id: str
     message_index: int
@@ -254,6 +325,65 @@ class FeedbackRequest(BaseModel):
 
 class EscalateRequest(BaseModel):
     thread_id: str
+
+# -------------------- Authentication Utility Functions --------------------
+def generate_otp() -> str:
+    """Generate a 6-digit OTP"""
+    return f"{random.randint(100000, 999999):06d}"
+
+def validate_phone_number(phone_number: str) -> bool:
+    """Validate Indian phone number format"""
+    # Remove any spaces or special characters
+    clean_number = ''.join(filter(str.isdigit, phone_number))
+    
+    # Check if it's a valid 10-digit Indian mobile number (starts with 6-9)
+    if len(clean_number) == 10 and clean_number[0] in '6789':
+        return True
+    return False
+
+def format_phone_number(phone_number: str) -> str:
+    """Format phone number to Indian format (+91XXXXXXXXXX)"""
+    clean_number = ''.join(filter(str.isdigit, phone_number))
+    if len(clean_number) == 10:
+        return f"+91{clean_number}"
+    return phone_number
+
+def send_otp_via_twilio(phone_number: str, otp_code: str) -> bool:
+    """Send OTP via Twilio SMS"""
+    if not twilio_client or not twilio_phone_number:
+        logger.error("Twilio client not initialized")
+        return False
+    
+    try:
+        formatted_number = format_phone_number(phone_number)
+        message = twilio_client.messages.create(
+            body=f"Your KrisiSeva verification code is: {otp_code}. This code will expire in 5 minutes. Do not share this code with anyone.",
+            from_=twilio_phone_number,
+            to=formatted_number
+        )
+        logger.info(f"OTP sent successfully to {phone_number}. Message SID: {message.sid}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send OTP to {phone_number}: {e}")
+        return False
+
+def cleanup_expired_otps():
+    """Clean up expired OTP sessions"""
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM otp_sessions WHERE expires_at < datetime('now')"
+            )
+            deleted_count = cursor.rowcount
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} expired OTP sessions")
+    except Exception as e:
+        logger.error(f"Failed to cleanup expired OTPs: {e}")
+
+def generate_access_token(phone_number: str) -> str:
+    """Generate a simple access token (in production, use JWT)"""
+    return f"token_{uuid.uuid4().hex}_{phone_number}"
 # -------------------- Utility Functions --------------------
 def generate_thread_id():
     return str(uuid.uuid4())
@@ -306,6 +436,313 @@ def convert_messages(messages: List[Message]) -> List[BaseMessage]:
 
 
 
+
+# -------------------- Authentication Endpoints --------------------
+
+@app.post("/auth/send-otp", response_model=SendOTPResponse)
+def send_otp_endpoint(request: SendOTPRequest):
+    """Send OTP to user's phone number"""
+    try:
+        print("Sending OTP...")
+        print("phone_number:", request.phone_number)
+        phone_number = request.phone_number.strip()
+        
+        # Validate phone number
+        if not validate_phone_number(phone_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number. Please enter a valid 10-digit Indian mobile number."
+            )
+        
+        print("Phone number validated.")
+        # Clean up expired OTPs
+        cleanup_expired_otps()
+        
+        # Check if there's a recent OTP request (rate limiting)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT created_at FROM otp_sessions 
+                WHERE phone_number = ? AND created_at > datetime('now', '-1 minute')
+                ORDER BY created_at DESC LIMIT 1
+            """, (phone_number,))
+            
+            recent_otp = cursor.fetchone()
+            if recent_otp:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Please wait at least 1 minute before requesting another OTP."
+                )
+        
+
+        print("Generating OTP...")
+        # Generate OTP
+        otp_code = generate_otp()
+        expires_at = datetime.datetime.now() + datetime.timedelta(minutes=5)
+        
+        # Send OTP via Twilio
+        print("Sending OTP via Twilio...")
+        if not send_otp_via_twilio(phone_number, otp_code):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send OTP. Please try again later."
+            )
+        
+        # Store OTP session in database
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO otp_sessions (phone_number, otp_code, expires_at)
+                VALUES (?, ?, ?)
+            """, (phone_number, otp_code, expires_at))
+        
+        return SendOTPResponse(
+            success=True,
+            message="OTP sent successfully to your mobile number",
+            expires_at=expires_at.isoformat()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending OTP: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error. Please try again later."
+        )
+
+@app.post("/auth/verify-otp", response_model=VerifyOTPResponse)
+def verify_otp_endpoint(request: VerifyOTPRequest):
+    """Verify OTP and authenticate user"""
+    try:
+        phone_number = request.phone_number.strip()
+        otp_code = request.otp_code.strip()
+        
+        # Validate inputs
+        if not validate_phone_number(phone_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number."
+            )
+        
+        if not otp_code.isdigit() or len(otp_code) != 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OTP format. Please enter a 6-digit code."
+            )
+        
+        # Check OTP in database
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, otp_code, expires_at, attempts, is_verified
+                FROM otp_sessions 
+                WHERE phone_number = ? AND expires_at > datetime('now')
+                ORDER BY created_at DESC LIMIT 1
+            """, (phone_number,))
+            
+            otp_session = cursor.fetchone()
+            
+            if not otp_session:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No valid OTP session found. Please request a new OTP."
+                )
+            
+            session_id, stored_otp, expires_at, attempts, is_verified = otp_session
+            
+            # Check if already verified
+            if is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="OTP already used. Please request a new OTP."
+                )
+            
+            # Check attempts limit
+            if attempts >= 3:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Maximum OTP attempts exceeded. Please request a new OTP."
+                )
+            
+            # Verify OTP
+            if stored_otp != otp_code:
+                # Increment attempts
+                cursor.execute("""
+                    UPDATE otp_sessions SET attempts = attempts + 1 
+                    WHERE id = ?
+                """, (session_id,))
+                
+                remaining_attempts = 2 - attempts
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid OTP. {remaining_attempts} attempts remaining."
+                )
+            
+            # Mark OTP as verified
+            cursor.execute("""
+                UPDATE otp_sessions SET is_verified = TRUE 
+                WHERE id = ?
+            """, (session_id,))
+            
+            # Check if user exists and is onboarded
+            cursor.execute("""
+                SELECT id, name, state, district, primary_crop, is_onboarded
+                FROM users WHERE phone_number = ?
+            """, (phone_number,))
+            
+            user = cursor.fetchone()
+            is_new_user = user is None
+            
+            if is_new_user:
+                # Create new user record
+                cursor.execute("""
+                    INSERT INTO users (phone_number, is_onboarded)
+                    VALUES (?, FALSE)
+                """, (phone_number,))
+                is_onboarded = False
+            else:
+                user_id, name, state, district, primary_crop, is_onboarded = user
+            
+            # Generate access token
+            access_token = generate_access_token(phone_number)
+            
+            return VerifyOTPResponse(
+                success=True,
+                message="OTP verified successfully",
+                is_new_user=is_new_user or not is_onboarded,
+                access_token=access_token
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying OTP: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error. Please try again later."
+        )
+
+@app.post("/auth/complete-registration", response_model=CompleteRegistrationResponse)
+def complete_registration_endpoint(request: CompleteRegistrationRequest):
+    """Complete user registration after OTP verification"""
+    try:
+        phone_number = request.phone_number.strip()
+        name = request.name.strip()
+        state = request.state.strip()
+        district = request.district.strip()
+        primary_crop = request.primary_crop.strip()
+        
+        # Validate inputs
+        if not validate_phone_number(phone_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number."
+            )
+        
+        if not name or len(name) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name must be at least 2 characters long."
+            )
+        
+        if not state or not district or not primary_crop:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="All fields are required."
+            )
+        
+        # Check if user exists and has verified OTP recently
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id FROM otp_sessions 
+                WHERE phone_number = ? AND is_verified = TRUE 
+                AND created_at > datetime('now', '-30 minutes')
+                ORDER BY created_at DESC LIMIT 1
+            """, (phone_number,))
+            
+            if not cursor.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Please verify your phone number first."
+                )
+            
+            # Update user profile
+            cursor.execute("""
+                UPDATE users 
+                SET name = ?, state = ?, district = ?, primary_crop = ?, 
+                    is_onboarded = TRUE, updated_at = datetime('now')
+                WHERE phone_number = ?
+            """, (name, state, district, primary_crop, phone_number))
+            
+            if cursor.rowcount == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found. Please verify your phone number first."
+                )
+            
+            # Generate access token
+            access_token = generate_access_token(phone_number)
+            
+            return CompleteRegistrationResponse(
+                success=True,
+                message="Registration completed successfully",
+                access_token=access_token
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error completing registration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error. Please try again later."
+        )
+
+@app.get("/auth/user-profile", response_model=UserProfile)
+def get_user_profile(phone_number: str):
+    """Get user profile"""
+    try:
+        if not validate_phone_number(phone_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number."
+            )
+        
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT phone_number, name, state, district, primary_crop, is_onboarded
+                FROM users WHERE phone_number = ?
+            """, (phone_number,))
+            
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found."
+                )
+            
+            phone, name, state, district, primary_crop, is_onboarded = user
+            
+            return UserProfile(
+                phone_number=phone,
+                name=name,
+                state=state,
+                district=district,
+                primary_crop=primary_crop,
+                is_onboarded=bool(is_onboarded)
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error."
+        )
 
 # Optional: Add a testing endpoint to trigger the check manually
 @app.post("/trigger-advisory-manually")
@@ -491,6 +928,47 @@ async def voice_query(file: UploadFile = File(...), language: str = Form("Malaya
             os.remove(temp_audio_path)
         logger.error(f"Voice query processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Voice query failed: {str(e)}")
+
+@app.post("/text-to-speech")
+async def text_to_speech(request: dict):
+    """
+    Converts text to speech using gTTS and returns audio data as base64.
+    """
+    try:
+        text = request.get("text", "")
+        language = request.get("language", "English")
+        
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="Text is required")
+        
+        # Language code mapping (same as frontend.py)
+        lang_code_map = {
+            "English": "en", "Malayalam": "ml", "Hindi": "hi",
+            "Spanish": "es", "French": "fr", "German": "de",
+            "Chinese": "zh-CN", "Arabic": "ar"
+        }
+        lang_code = lang_code_map.get(language, 'en')
+        
+        # Generate TTS audio
+        tts = gTTS(text=text, lang=lang_code, tld="co.in", slow=False)
+        audio_fp = io.BytesIO()
+        tts.write_to_fp(audio_fp)
+        audio_fp.seek(0)
+        audio_bytes = audio_fp.read()
+        
+        # Convert to base64 for JSON response
+        import base64
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+        
+        return {
+            "success": True,
+            "audio_data": audio_base64,
+            "content_type": "audio/mp3"
+        }
+        
+    except Exception as e:
+        logger.error(f"Text-to-speech failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Text-to-speech failed: {str(e)}")
 
 @app.get("/threads", response_model=ThreadListResponse)
 def get_all_threads():

@@ -10,14 +10,16 @@ const Button = ({
   className = '', 
   ...props 
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'btn';
   
   const variants = {
-    primary: 'bg-primary-600 hover:bg-primary-700 text-white',
-    secondary: 'bg-secondary-600 hover:bg-secondary-700 text-white',
-    outline: 'border border-gray-300 hover:bg-gray-50 text-gray-700',
-    ghost: 'hover:bg-gray-100 text-gray-700',
-    danger: 'bg-red-600 hover:bg-red-700 text-white'
+    primary: 'btn-primary',
+    secondary: 'btn-secondary',
+    outline: 'btn-outline',
+    ghost: 'hover:bg-gray-100 text-gray-700 bg-transparent border-transparent',
+    danger: 'btn-error',
+    success: 'btn-success',
+    warning: 'btn-warning'
   };
   
   const sizes = {

@@ -3,7 +3,7 @@ import React from 'react';
 const Card = ({ children, className = '', ...props }) => {
   return (
     <div 
-      className={`card p-6 ${className}`} 
+      className={`card ${className}`} 
       {...props}
     >
       {children}
@@ -13,7 +13,7 @@ const Card = ({ children, className = '', ...props }) => {
 
 const CardHeader = ({ children, className = '' }) => {
   return (
-    <div className={`mb-4 ${className}`}>
+    <div className={`card-header ${className}`}>
       {children}
     </div>
   );
@@ -29,7 +29,15 @@ const CardTitle = ({ children, className = '' }) => {
 
 const CardContent = ({ children, className = '' }) => {
   return (
-    <div className={className}>
+    <div className={`card-body ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+const CardFooter = ({ children, className = '' }) => {
+  return (
+    <div className={`card-footer ${className}`}>
       {children}
     </div>
   );
@@ -38,5 +46,6 @@ const CardContent = ({ children, className = '' }) => {
 Card.Header = CardHeader;
 Card.Title = CardTitle;
 Card.Content = CardContent;
+Card.Footer = CardFooter;
 
 export default Card;
