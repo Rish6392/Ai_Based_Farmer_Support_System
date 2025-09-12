@@ -1,6 +1,7 @@
 import React from 'react';
-import { Bot, User, Volume2, Copy, Check } from 'lucide-react';
+import { Bot, User, Volume2, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from '../utils/cn';
 
 const ChatMessage = ({ 
@@ -10,12 +11,18 @@ const ChatMessage = ({
   onTypingComplete, 
   onTextToSpeech, 
   ttsLoading, 
-  typingMessageIndex 
+  typingMessageIndex,
+  feedback,
+  onFeedback 
 }) => {
   const [copied, setCopied] = React.useState(false);
   
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+  
+  const feedbackKey = `feedback_${index}`;
+  const currentFeedback = feedback?.[feedbackKey];
+  const hasFeedback = Boolean(currentFeedback);
 
   const handleCopy = async () => {
     try {
@@ -136,7 +143,61 @@ const ChatMessage = ({
               )}
             </button>
           )}
+
+          {/* Feedback Buttons for Assistant Messages */}
+          {isAssistant && onFeedback && (
+            <>
+              {/* Thumbs Up */}
+              <button
+                onClick={() => onFeedback(index, 1)}
+                disabled={hasFeedback}
+                className={cn(
+                  "p-1.5 rounded-lg transition-all duration-200 disabled:cursor-not-allowed",
+                  currentFeedback === 'like'
+                    ? "text-green-600 bg-green-50"
+                    : hasFeedback
+                    ? "text-gray-300"
+                    : "text-gray-400 hover:text-green-600 hover:bg-green-50"
+                )}
+                title="Like this response"
+              >
+                <ThumbsUp className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Thumbs Down */}
+              <button
+                onClick={() => onFeedback(index, -1)}
+                disabled={hasFeedback}
+                className={cn(
+                  "p-1.5 rounded-lg transition-all duration-200 disabled:cursor-not-allowed",
+                  currentFeedback === 'dislike'
+                    ? "text-red-600 bg-red-50"
+                    : hasFeedback
+                    ? "text-gray-300"
+                    : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                )}
+                title="Dislike this response"
+              >
+                <ThumbsDown className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
+
+        {/* Feedback Confirmation Messages */}
+        {isAssistant && hasFeedback && (
+          <div className={cn(
+            "mt-2 text-xs px-2",
+            isUser ? "text-right" : "text-left"
+          )}>
+            {currentFeedback === 'like' && (
+              <span className="text-green-600">Thanks for your feedback! 👍</span>
+            )}
+            {currentFeedback === 'dislike' && (
+              <span className="text-orange-600">Thanks for your feedback. We'll work to improve! 👎</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -147,52 +208,80 @@ const TypingMessage = ({ content, isTyping, onTypingComplete, isUser }) => {
   const [displayedText, setDisplayedText] = React.useState('');
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [hasCompleted, setHasCompleted] = React.useState(false);
+  const [hasStarted, setHasStarted] = React.useState(false);
   const typingIntervalRef = React.useRef(null);
 
   React.useEffect(() => {
+    // Clear any existing interval
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
     }
 
+    // If already completed or not typing, show full content
     if (!isTyping || hasCompleted) {
-      setDisplayedText(content);
-      setCurrentIndex(content.length);
+      if (!hasStarted) {
+        setDisplayedText(content);
+        setCurrentIndex(content.length);
+      }
       return;
     }
 
+    // If typing but already completed, don't restart
+    if (hasCompleted) {
+      return;
+    }
+
+    // Start typing animation
+    if (!hasStarted) {
+      setHasStarted(true);
+      setDisplayedText('');
+      setCurrentIndex(0);
+      setHasCompleted(false);
+
+      const startDelay = setTimeout(() => {
+        typingIntervalRef.current = setInterval(() => {
+          setCurrentIndex((prevIndex) => {
+            const nextIndex = prevIndex + 1;
+            
+            if (nextIndex > content.length) {
+              clearInterval(typingIntervalRef.current);
+              typingIntervalRef.current = null;
+              setHasCompleted(true);
+              setTimeout(() => {
+                onTypingComplete && onTypingComplete();
+              }, 100);
+              return content.length;
+            }
+
+            setDisplayedText(content.substring(0, nextIndex));
+            return nextIndex;
+          });
+        }, 15);
+      }, 200);
+
+      return () => {
+        clearTimeout(startDelay);
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+        }
+      };
+    }
+  }, [content, isTyping, hasCompleted, hasStarted]);
+
+  // Reset when content changes (new message)
+  React.useEffect(() => {
+    setHasStarted(false);
+    setHasCompleted(false);
     setDisplayedText('');
     setCurrentIndex(0);
-    setHasCompleted(false);
-
-    const startDelay = setTimeout(() => {
-      typingIntervalRef.current = setInterval(() => {
-        setCurrentIndex((prevIndex) => {
-          const nextIndex = prevIndex + 1;
-          
-          if (nextIndex > content.length) {
-            clearInterval(typingIntervalRef.current);
-            setHasCompleted(true);
-            onTypingComplete && onTypingComplete();
-            return content.length;
-          }
-
-          setDisplayedText(content.substring(0, nextIndex));
-          return nextIndex;
-        });
-      }, 10);
-    }, 100);
-
-    return () => {
-      clearTimeout(startDelay);
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-      }
-    };
-  }, [content, isTyping, onTypingComplete, hasCompleted]);
+  }, [content]);
 
   return (
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
           strong: ({ children }) => (
@@ -208,6 +297,48 @@ const TypingMessage = ({ content, isTyping, onTypingComplete, isUser }) => {
           ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto mb-4">
+              <table className={cn(
+                "min-w-full divide-y border rounded-lg",
+                isUser ? "divide-blue-200 border-blue-200" : "divide-gray-200 border-gray-200"
+              )}>
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ children }) => (
+            <thead className={cn(
+              isUser ? "bg-blue-50" : "bg-gray-50"
+            )}>
+              {children}
+            </thead>
+          ),
+          tbody: ({ children }) => (
+            <tbody className={cn(
+              "divide-y",
+              isUser ? "divide-blue-200 bg-blue-25" : "divide-gray-200 bg-white"
+            )}>
+              {children}
+            </tbody>
+          ),
+          tr: ({ children }) => <tr>{children}</tr>,
+          th: ({ children }) => (
+            <th className={cn(
+              "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider",
+              isUser ? "text-blue-800" : "text-gray-700"
+            )}>
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className={cn(
+              "px-4 py-3 text-sm whitespace-nowrap",
+              isUser ? "text-blue-900" : "text-gray-700"
+            )}>
+              {children}
+            </td>
+          ),
           code: ({ children }) => (
             <code className={cn(
               "px-2 py-1 rounded text-xs font-mono",

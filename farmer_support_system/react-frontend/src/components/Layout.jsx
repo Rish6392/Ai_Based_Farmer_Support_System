@@ -7,6 +7,8 @@ const Layout = () => {
   
   // Don't show navbar on landing page
   const isLandingPage = location.pathname === '/';
+  // Don't show footer on landing page and chat page
+  const isChatPage = location.pathname === '/chat';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -18,8 +20,8 @@ const Layout = () => {
         <Outlet />
       </main>
 
-      {/* Footer - only show when not on landing page */}
-      {!isLandingPage && (
+      {/* Footer - only show when not on landing page and not on chat page */}
+      {!isLandingPage && !isChatPage && (
         <footer className="bg-gray-800 text-gray-300 py-6">
           <div className="container mx-auto px-6">
             <div className="flex flex-col md:flex-row justify-between items-center">

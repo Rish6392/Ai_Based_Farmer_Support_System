@@ -56,14 +56,14 @@ const LocationPage = () => {
   const [alerts, setAlerts] = useState([]);
 
   // Weather data fetching function
-  const fetchWeatherData = async (district, apiKey) => {
-    if (!apiKey || !district) {
-      throw new Error('API key and district are required');
+  const fetchWeatherData = async (district) => {
+    if (!district) {
+      throw new Error('District is required');
     }
     
     const [lat, lon] = KERALA_DISTRICTS[district];
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
+      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${import.meta.env.VITE_OPENWEATHER_API_KEY}&units=metric`
     );
     
     if (!response.ok) {
@@ -345,18 +345,7 @@ const LocationPage = () => {
               </select>
             </div>
             
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                OpenWeather API Key
-              </label>
-              <input
-                type="password"
-                value={formData.apiKey}
-                onChange={(e) => updateFormData('apiKey', e.target.value)}
-                placeholder="Enter your free API key from openweathermap.org"
-                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
+
             
             <div className="md:col-span-1 flex items-end">
               <Button

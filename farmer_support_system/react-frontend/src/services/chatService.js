@@ -108,5 +108,22 @@ export const chatService = {
       console.error('Failed to convert text to speech:', error);
       throw new Error('Failed to convert text to speech');
     }
+  },
+
+  // Log feedback for a message
+  logFeedback: async (threadId, messageIndex, rating) => {
+    try {
+      const payload = {
+        thread_id: threadId,
+        message_index: messageIndex,
+        rating: rating // 1 for thumbs up, -1 for thumbs down
+      };
+      const response = await api.post('/log-feedback', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to log feedback:', error);
+      // Don't throw error for feedback - fail silently
+      return { success: false, error: error.message };
+    }
   }
 };

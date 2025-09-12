@@ -20,6 +20,7 @@ const ChatbotPage = () => {
   const [playingAudio, setPlayingAudio] = useState(null);
   const [ttsLoading, setTtsLoading] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [feedback, setFeedback] = useState({});
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -63,7 +64,7 @@ const ChatbotPage = () => {
     loadThreads();
   }, []);
 
-  const handleSendMessage = async (messageText = null, currentMessages = null, manageLoading = true) => {
+    const handleSendMessage = async (messageText = null, currentMessages = null, manageLoading = true) => {
     const messageToSend = messageText || inputMessage.trim();
     const currentMessageList = currentMessages || messages;
     
@@ -145,6 +146,8 @@ const ChatbotPage = () => {
     }
   };
 
+
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -152,11 +155,56 @@ const ChatbotPage = () => {
     }
   };
 
-  const handleNewChat = () => {
-    setMessages([]);
-    setCurrentThreadId('default-thread');
-    setTypingMessageIndex(null);
-    setInputMessage('');
+  const handleNewChat = async () => {
+    try {
+      // Create a new thread
+      const newThreadId = await chatService.createNewThread();
+      
+      // Update state
+      setCurrentThreadId(newThreadId);
+      setMessages([]);
+      setTypingMessageIndex(null);
+      setInputMessage('');
+      setFeedback({}); // Reset feedback
+      
+      // Update threads list (put new thread at the beginning)
+      setThreads(prev => {
+        const updatedThreads = [newThreadId, ...prev.filter(id => id !== newThreadId)];
+        return updatedThreads;
+      });
+    } catch (error) {
+      console.error('Failed to create new thread:', error);
+      // Fallback: use timestamp-based ID
+      const fallbackThreadId = `thread-${Date.now()}`;
+      setCurrentThreadId(fallbackThreadId);
+      setMessages([]);
+      setTypingMessageIndex(null);
+      setInputMessage('');
+      setFeedback({}); // Reset feedback
+      setThreads(prev => [fallbackThreadId, ...prev]);
+    }
+  };
+
+  const handleThreadSelect = async (threadId) => {
+    try {
+      // Load thread messages
+      const threadMessages = await chatService.loadThread(threadId);
+      
+      // Update state
+      setCurrentThreadId(threadId);
+      setMessages(threadMessages);
+      setTypingMessageIndex(null);
+      setInputMessage('');
+      setFeedback({}); // Reset feedback for new thread
+    } catch (error) {
+      console.error(`Failed to load thread ${threadId}:`, error);
+      // If loading fails, just switch to empty thread
+      setCurrentThreadId(threadId);
+      setMessages([]);
+      setTypingMessageIndex(null);
+      setInputMessage('');
+      setFeedback({}); // Reset feedback for new thread
+    }
   };
 
   const handleVoiceQuery = async (audioFile, language) => {
@@ -168,7 +216,7 @@ const ChatbotPage = () => {
       console.log('Voice query result:', result);
       
       if (result.transcription) {
-        // Add transcription as user message (like Streamlit version)
+        // Add transcription as user message
         const transcriptionText = result.transcription;
         const userMessage = {
           role: 'user',
@@ -176,18 +224,57 @@ const ChatbotPage = () => {
           timestamp: new Date().toISOString(),
         };
         
-        // Update messages with user message first
-        setMessages(prev => {
-          const newMessages = [...prev, userMessage];
+        // Add user message first
+        setMessages(prev => [...prev, userMessage]);
+        
+        // Process the transcribed text through chat API
+        try {
+          const currentMessages = [...messages, userMessage];
+          const apiMessages = currentMessages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }));
+
+          const aiMessages = await chatService.sendMessage(currentThreadId, apiMessages, language);
           
-          // Now send the transcription through normal chat flow (like Streamlit)
-          // Don't let handleSendMessage manage loading since we're managing it here
-          handleSendMessage(transcriptionText, newMessages, false);
-          
-          return newMessages;
-        });
+          if (aiMessages && aiMessages.length > 0) {
+            const newAIMessages = aiMessages.map(msg => ({
+              ...msg,
+              timestamp: new Date().toISOString()
+            }));
+
+            setMessages(prev => {
+              const updatedMessages = [...prev, ...newAIMessages];
+              
+              // Start typing animation for the last AI message
+              const lastAIMessageIndex = updatedMessages.length - 1;
+              if (newAIMessages[newAIMessages.length - 1].role === 'assistant') {
+                setTimeout(() => {
+                  setTypingMessageIndex(lastAIMessageIndex);
+                }, 50);
+              }
+              
+              return updatedMessages;
+            });
+          }
+        } catch (chatError) {
+          console.error('Failed to process transcription:', chatError);
+          const errorMessage = {
+            role: 'assistant',
+            content: `Failed to process your message: ${chatError.message}`,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => {
+            const newMessages = [...prev, errorMessage];
+            setTimeout(() => {
+              setTypingMessageIndex(newMessages.length - 1);
+            }, 50);
+            return newMessages;
+          });
+        }
+        
       } else if (result.answer) {
-        // Fallback: if no transcription but has answer, use the old flow
+        // Direct answer flow (fallback)
         const userMessage = {
           role: 'user',
           content: `🎤 Voice query`,
@@ -206,7 +293,7 @@ const ChatbotPage = () => {
           // Start typing animation for AI response
           setTimeout(() => {
             setTypingMessageIndex(newMessages.length - 1);
-          }, 10);
+          }, 50);
           
           return newMessages;
         });
@@ -224,7 +311,7 @@ const ChatbotPage = () => {
         // Start typing animation for error message
         setTimeout(() => {
           setTypingMessageIndex(newMessages.length - 1);
-        }, 10);
+        }, 50);
         
         return newMessages;
       });
@@ -300,19 +387,26 @@ const ChatbotPage = () => {
     }
   };
 
-  const getStatusColor = () => {
-    const { total_documents, processed_chunks } = knowledgeBaseStatus;
-    if (total_documents > 0 && processed_chunks > 0) return 'text-green-600';
-    if (total_documents > 0) return 'text-yellow-600';
-    return 'text-gray-500';
+  const handleFeedback = async (messageIndex, rating) => {
+    try {
+      const feedbackKey = `feedback_${messageIndex}`;
+      
+      // Update local feedback state
+      setFeedback(prev => ({
+        ...prev,
+        [feedbackKey]: rating > 0 ? 'like' : 'dislike'
+      }));
+
+      // Send feedback to backend
+      if (currentThreadId) {
+        await chatService.logFeedback(currentThreadId, messageIndex, rating);
+      }
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      // Optionally show an error toast/notification
+    }
   };
 
-  const getStatusText = () => {
-    const { total_documents, processed_chunks } = knowledgeBaseStatus;
-    if (total_documents > 0 && processed_chunks > 0) return '🟢 Ready';
-    if (total_documents > 0) return '🟠 Processing...';
-    return '⚪ No documents';
-  };
 
   const quickQuestions = [
     "What crops should I plant this season?",
@@ -330,7 +424,10 @@ const ChatbotPage = () => {
     (messages.length === 1 && messages[0].role === 'assistant' && !messages[0].content.includes('🎤'));
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden">
+    <div 
+      className="bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden" 
+      style={{ height: 'calc(100vh - 64px)' }}
+    >
       {/* Sidebar */}
       <Sidebar
         isCollapsed={sidebarCollapsed}
@@ -345,6 +442,9 @@ const ChatbotPage = () => {
         isLoading={isLoading}
         quickQuestions={quickQuestions}
         onQuickQuestionSelect={setInputMessage}
+        threads={threads}
+        currentThreadId={currentThreadId}
+        onThreadSelect={handleThreadSelect}
       />
 
       {/* Main Chat Area */}
@@ -377,6 +477,8 @@ const ChatbotPage = () => {
                     onTextToSpeech={handleTextToSpeech}
                     ttsLoading={ttsLoading}
                     typingMessageIndex={typingMessageIndex}
+                    feedback={feedback}
+                    onFeedback={handleFeedback}
                   />
                 ))}
 

@@ -33,7 +33,7 @@ const ChatInput = ({
         <div className="w-full max-w-3xl">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome to AgriBot
+              Welcome to KisanSewa!
             </h1>
             <p className="text-lg text-gray-600">
               Your AI-powered farming assistant. How can I help you today?

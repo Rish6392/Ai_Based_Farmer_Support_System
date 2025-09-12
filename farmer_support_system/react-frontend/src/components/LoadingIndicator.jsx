@@ -25,7 +25,7 @@ const LoadingIndicator = ({ className }) => {
                 style={{ animationDelay: '0.2s' }}
               ></div>
             </div>
-            <span className="text-sm text-gray-500 ml-2">AgriBot is thinking...</span>
+            <span className="text-sm text-gray-500 ml-2">KisanSewa is thinking...</span>
           </div>
         </div>
       </div>

@@ -155,6 +155,16 @@ const GoogleTranslate = () => {
       #google_translate_element_hidden {
         display: none !important;
       }
+      
+      /* Ensure notranslate elements are not translated */
+      .notranslate {
+        translate: no !important;
+      }
+      
+      /* Force language dropdown to not be translated */
+      [class*="notranslate"] {
+        translate: no !important;
+      }
     `;
     document.head.appendChild(style);
   }, []);
@@ -164,7 +174,7 @@ const GoogleTranslate = () => {
       {/* Custom Language Dropdown Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+        className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg notranslate ${
           isOpen 
             ? 'bg-green-50 text-green-600 border border-green-200' 
             : 'text-gray-700 hover:text-green-600 hover:bg-gray-50'
@@ -172,12 +182,12 @@ const GoogleTranslate = () => {
         aria-label="Select Language"
       >
         <Globe className="w-4 h-4" />
-        <div className="hidden sm:flex flex-col items-start">
-          <span className="font-medium text-xs leading-tight">{selectedLanguage}</span>
+        <div className="hidden sm:flex flex-col items-start notranslate">
+          <span className="font-medium text-xs leading-tight notranslate">{selectedLanguage}</span>
           {(() => {
             const currentLang = languages.find(lang => lang.name === selectedLanguage);
             return currentLang && currentLang.name !== currentLang.nativeName ? (
-              <span className="text-xs text-gray-500 leading-tight">{currentLang.nativeName}</span>
+              <span className="text-xs text-gray-500 leading-tight notranslate">{currentLang.nativeName}</span>
             ) : null;
           })()}
         </div>
@@ -186,7 +196,7 @@ const GoogleTranslate = () => {
 
       {/* Custom Language Dropdown */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-[200px] max-h-60 overflow-y-auto">
+        <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-[200px] max-h-60 overflow-y-auto notranslate">
           {languages.map((language) => (
             <button
               key={language.code}
@@ -195,12 +205,12 @@ const GoogleTranslate = () => {
                 selectedLanguage === language.name 
                   ? 'bg-green-50 text-green-600 font-medium' 
                   : 'text-gray-700'
-              }`}
+              } notranslate`}
             >
-              <div className="flex flex-col">
-                <span className="font-medium">{language.name}</span>
+              <div className="flex flex-col notranslate">
+                <span className="font-medium notranslate">{language.name}</span>
                 {language.name !== language.nativeName && (
-                  <span className="text-xs text-gray-500 mt-0.5">{language.nativeName}</span>
+                  <span className="text-xs text-gray-500 mt-0.5 notranslate">{language.nativeName}</span>
                 )}
               </div>
             </button>
