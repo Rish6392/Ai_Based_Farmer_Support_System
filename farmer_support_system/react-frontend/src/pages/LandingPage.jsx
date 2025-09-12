@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import { MapPin, Mic, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -20,6 +23,7 @@ import InstallPrompt from '../components/InstallPrompt';
 const LandingPage = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const cardsRef = useRef(null);
   
   // Rectangle carousel data using your Rectangle files
   const rectangleSlides = [
@@ -42,7 +46,7 @@ const LandingPage = () => {
       image: Rectangle9,
       title: "Yield Optimization",
       subtitle: "Maximum Harvest",
-      description: "Optimize your crop yield with data-driven insights and farming recommendations."
+      description: "Transform your farming with AI-powered insights. Increase crop yields by up to 40% through precision agriculture, smart irrigation, and data-driven farming decisions."
     },
     {
       id: 4,
@@ -87,7 +91,11 @@ const LandingPage = () => {
 
   const handleExploreClick = () => {
     if (isAuthenticated) {
-      navigate('/disease-prediction');
+      // Scroll to cards section
+      cardsRef.current?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
     } else {
       navigate('/login');
     }
@@ -163,11 +171,16 @@ const LandingPage = () => {
       <section className="relative h-screen overflow-hidden">
         {/* Static Rectangle 1 Background */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000"
           style={{
             backgroundImage: `url(${Rectangle1})`,
           }}
         />
+        
+        {/* Special overlay for Yield Optimization */}
+        {rectangleSlides[currentSlide].title === "Yield Optimization" && (
+          <div className="absolute inset-0 bg-gradient-to-br from-green-900/30 via-emerald-800/20 to-lime-900/30 animate-pulse"></div>
+        )}
         
         {/* Content */}
         <div className="relative z-10 h-full flex items-center">
@@ -175,25 +188,41 @@ const LandingPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
               
               {/* Left Content */}
-              <div className="space-y-6">
-                <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
-                  {rectangleSlides[currentSlide].title}
-                </h1>
-                <h2 className="text-xl md:text-2xl text-green-300 font-semibold">
+              <div className="space-y-8">
+                <div className="transform transition-all duration-700 ease-out">
+                  <h1 className="text-7xl md:text-8xl lg:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-green-100 to-green-200 mb-8 leading-none tracking-tight animate-pulse">
+                    {rectangleSlides[currentSlide].title}
+                  </h1>
+                  <div className="h-2 w-32 bg-gradient-to-r from-green-400 to-blue-400 rounded-full mb-6 animate-pulse"></div>
+                </div>
+                
+                <h2 className="text-2xl md:text-3xl lg:text-4xl text-green-300 font-bold tracking-wide shadow-text">
                   {rectangleSlides[currentSlide].subtitle}
                 </h2>
-                <p className="text-white text-lg leading-relaxed opacity-90 max-w-lg">
+                
+                <p className="text-white text-xl md:text-2xl leading-relaxed opacity-95 max-w-2xl font-medium drop-shadow-lg">
                   {rectangleSlides[currentSlide].description}
                 </p>
-                <button
-                  onClick={() => navigate('/disease-prediction')}
-                  className="inline-flex items-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  Explore Now
-                  <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </button>
+                
+                <div className="pt-4">
+                  <button
+                    onClick={handleExploreClick}
+                    className="group relative inline-flex items-center px-12 py-6 bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 text-white font-bold text-xl rounded-2xl transition-all duration-500 transform hover:scale-110 hover:rotate-1 shadow-2xl hover:shadow-green-500/50 border-2 border-green-400/30 hover:border-green-300/50"
+                  >
+                    <span className="relative z-10">Explore Now</span>
+                    <svg className="ml-3 w-7 h-7 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                    
+                    {/* Animated background effect */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+                    
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                      <div className="absolute -inset-2 bg-gradient-to-r from-transparent via-white/20 to-transparent rotate-12 translate-x-[-100%] group-hover:translate-x-[300%] transition-transform duration-1000"></div>
+                    </div>
+                  </button>
+                </div>
               </div>
               
               {/* Right Content - Rectangle Images Carousel */}
@@ -215,9 +244,9 @@ const LandingPage = () => {
                 </button>
 
                 {/* Main Carousel Container */}
-                <div className="relative w-full max-w-md">
+                <div className="relative w-full max-w-lg">
                   {/* Main Rectangle Images */}
-                  <div className="relative h-80 lg:h-96 overflow-hidden rounded-3xl">
+                  <div className="relative h-96 lg:h-[28rem] overflow-hidden rounded-3xl">
                     {rectangleSlides.map((slide, index) => (
                       <div
                         key={slide.id}
@@ -232,29 +261,46 @@ const LandingPage = () => {
                         <img
                           src={slide.image}
                           alt={slide.title}
-                          className="w-full h-full object-cover rounded-3xl shadow-2xl border-4 border-white"
+                          className={`w-full h-full object-cover rounded-3xl shadow-2xl border-4 transition-all duration-500 ${
+                            slide.title === "Yield Optimization" && index === currentSlide
+                              ? 'border-green-400 shadow-green-500/50 scale-105 animate-float'
+                              : 'border-white'
+                          }`}
                         />
-
+                        
+                        {/* Special overlay for Yield Optimization */}
+                        {slide.title === "Yield Optimization" && index === currentSlide && (
+                          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-green-500/20 via-transparent to-emerald-500/20 animate-pulse"></div>
+                        )}
                       </div>
                     ))}
                   </div>
 
                   {/* Secondary smaller images */}
-                  <div className="absolute -top-8 -right-8 w-24 h-32 opacity-80">
+                  <div className="absolute -top-10 -right-10 w-28 h-36 opacity-85 transform rotate-6 hover:rotate-12 transition-transform duration-300">
                     <img
                       src={rectangleSlides[(currentSlide + 1) % rectangleSlides.length].image}
                       alt="Next"
-                      className="w-full h-full object-cover rounded-2xl shadow-xl border-2 border-white"
+                      className="w-full h-full object-cover rounded-2xl shadow-2xl border-3 border-white/80 hover:border-green-300 transition-all duration-300"
                     />
                   </div>
                   
-                  <div className="absolute -bottom-8 -right-8 w-20 h-28 opacity-60">
+                  <div className="absolute -bottom-10 -right-10 w-24 h-32 opacity-75 transform -rotate-3 hover:-rotate-6 transition-transform duration-300">
                     <img
                       src={rectangleSlides[(currentSlide + 2) % rectangleSlides.length].image}
                       alt="Preview"
-                      className="w-full h-full object-cover rounded-xl shadow-lg border-2 border-white"
+                      className="w-full h-full object-cover rounded-xl shadow-xl border-2 border-white/70 hover:border-blue-300 transition-all duration-300"
                     />
                   </div>
+                  
+                  {/* Floating particles effect for Yield Optimization */}
+                  {rectangleSlides[currentSlide].title === "Yield Optimization" && (
+                    <>
+                      <div className="absolute top-4 left-4 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+                      <div className="absolute bottom-8 left-8 w-2 h-2 bg-emerald-300 rounded-full animate-bounce delay-300"></div>
+                      <div className="absolute top-12 right-12 w-2 h-2 bg-lime-400 rounded-full animate-pulse delay-500"></div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -280,7 +326,7 @@ const LandingPage = () => {
       </section>
 
       {/* Cards Section */}
-      <section className="py-20 bg-gradient-to-br from-green-50 to-blue-50">
+      <section ref={cardsRef} className="py-20 bg-gradient-to-br from-green-50 to-blue-50">
         <div className="container mx-auto px-6">
           {/* Section Header */}
           <div className="text-center mb-16">

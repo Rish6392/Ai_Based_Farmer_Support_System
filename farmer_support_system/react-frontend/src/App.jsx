@@ -50,25 +50,25 @@ function App() {
               <Route 
                 path="chat" 
                 element={
-                  <ProtectedRoute>
+                  // <ProtectedRoute>
                     <ChatbotPage />
-                  </ProtectedRoute>
+                  // </ProtectedRoute>
                 } 
               />
               <Route 
                 path="disease-prediction" 
                 element={
-                  <ProtectedRoute>
+                  // <ProtectedRoute>
                     <DiseasePredictionPage />
-                  </ProtectedRoute>
+                  // </ProtectedRoute>
                 } 
               />
               <Route 
                 path="dashboard" 
                 element={
-                  <ProtectedRoute>
+                  // <ProtectedRoute>
                     <DashboardPage />
-                   </ProtectedRoute>
+                  //  </ProtectedRoute>
                 } 
               />
               <Route path="contact" element={<ContactPage />} />
