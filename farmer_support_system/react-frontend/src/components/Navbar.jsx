@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleTranslate from './GoogleTranslate';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -83,7 +84,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             {filteredNavItems.map((item) => (
               <NavLink
                 key={item.path}
@@ -101,6 +102,9 @@ const Navbar = () => {
                 {item.label}
               </NavLink>
             ))}
+            
+            {/* Google Translate Component */}
+            <GoogleTranslate />
             
             {/* Auth Section */}
             {isAuthenticated ? (
@@ -171,6 +175,11 @@ const Navbar = () => {
                   {item.label}
                 </NavLink>
               ))}
+              
+              {/* Mobile Google Translate */}
+              <div className="px-4 py-2 border-t border-gray-200 mt-2 pt-4">
+                <GoogleTranslate />
+              </div>
               
               {/* Mobile Auth Section */}
               {isAuthenticated ? (
