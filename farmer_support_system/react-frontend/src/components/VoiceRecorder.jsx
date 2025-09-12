@@ -10,6 +10,7 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
   const [duration, setDuration] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasBeenSent, setHasBeenSent] = useState(false); // New state to track if already sent
   
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
@@ -47,6 +48,7 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
       // Reset previous recording
       setAudioBlob(null);
       setRecordingTime(0);
+      setHasBeenSent(false); // Reset sent flag for new recording
       chunksRef.current = [];
 
       // Try WAV recording first (more compatible with backend)
@@ -190,6 +192,7 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     setRecordingTime(0);
     setPlaybackTime(0);
     setDuration(0);
+    setHasBeenSent(false); // Reset sent flag when resetting
     chunksRef.current = [];
     
     if (playbackTimerRef.current) {
@@ -245,9 +248,11 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
   };
 
   const sendVoiceQuery = async () => {
-    if (!audioBlob || isProcessing) return;
+    if (!audioBlob || isProcessing || hasBeenSent) return;
 
     setIsProcessing(true);
+    setHasBeenSent(true); // Mark as sent to prevent multiple sends
+    
     try {
       console.log('Processing audio blob:', audioBlob.type, audioBlob.size, 'bytes');
       
@@ -264,7 +269,11 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
         
         await onVoiceQuery(file, voiceLanguage);
         console.log('Voice query successful with WAV format');
-        resetRecording();
+        
+        // Clear states to prevent multiple sends
+        setAudioBlob(null);
+        setDuration(0);
+        setPlaybackTime(0);
         return;
       }
 
@@ -276,7 +285,11 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
         
         await onVoiceQuery(originalFile, voiceLanguage);
         console.log('Voice query successful with original format');
-        resetRecording();
+        
+        // Clear states to prevent multiple sends
+        setAudioBlob(null);
+        setDuration(0);
+        setPlaybackTime(0);
         return;
       } catch (originalError) {
         console.log('Original format failed, attempting conversion:', originalError.message);
@@ -295,7 +308,11 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
           
           await onVoiceQuery(file, voiceLanguage);
           console.log('Voice query successful with WAV conversion');
-          resetRecording();
+          
+          // Clear states to prevent multiple sends
+          setAudioBlob(null);
+          setDuration(0);
+          setPlaybackTime(0);
         } catch (conversionError) {
           throw new Error(`Both original and converted formats failed: ${conversionError.message}`);
         }
@@ -303,6 +320,8 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
     } catch (error) {
       console.error('Voice query failed:', error);
       alert(`Failed to send voice query: ${error.message}`);
+      // Reset hasBeenSent on error so user can retry
+      setHasBeenSent(false);
     } finally {
       setIsProcessing(false);
     }
@@ -464,14 +483,28 @@ const VoiceRecorder = ({ onVoiceQuery, voiceLanguage, disabled = false }) => {
       )}
       
       {/* Send Voice Query Button */}
-      {audioBlob && (
+      {audioBlob && !isProcessing && !hasBeenSent && (
         <button 
           onClick={sendVoiceQuery}
-          disabled={isProcessing}
+          disabled={isProcessing || hasBeenSent}
           className="w-full px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isProcessing ? 'Processing...' : 'Send Voice Query'}
+          Send Voice Query
         </button>
+      )}
+      
+      {/* Processing indicator */}
+      {isProcessing && (
+        <div className="w-full px-3 py-2 bg-gray-400 text-white rounded text-sm text-center">
+          Processing...
+        </div>
+      )}
+      
+      {/* Query sent indicator */}
+      {hasBeenSent && !isProcessing && !audioBlob && (
+        <div className="w-full px-3 py-2 bg-green-500 text-white rounded text-sm text-center">
+          ✓ Query Sent Successfully
+        </div>
       )}
       
       {/* Progress Bar */}

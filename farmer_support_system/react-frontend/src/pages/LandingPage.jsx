@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import { MapPin, Mic, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Mic, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
@@ -162,6 +162,15 @@ const LandingPage = () => {
       color: "bg-purple-100 text-purple-600",
       hoverColor: "hover:bg-purple-200",
       route: "/disease-prediction"
+    },
+    {
+      id: 4,
+      title: "Crop Scheduler",
+      icon: Calendar,
+      description: "AI-powered crop activity planning and scheduling",
+      color: "bg-orange-100 text-orange-600",
+      hoverColor: "hover:bg-orange-200",
+      route: "/crop-scheduler"
     }
   ];
 
@@ -339,7 +348,7 @@ const LandingPage = () => {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {cards.map((card) => {
               const IconComponent = card.icon;
               return (

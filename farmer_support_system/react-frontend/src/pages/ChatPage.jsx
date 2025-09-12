@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chatService } from '../services';
 import VoiceRecorder from '../components/VoiceRecorder';
+import ChatMessage from '../components/ChatMessage';
 import { Send, Plus } from 'lucide-react';
 
 const ChatPage = () => {
@@ -13,6 +14,8 @@ const ChatPage = () => {
     total_documents: 0,
     processed_chunks: 0
   });
+  const [ttsLoading, setTtsLoading] = useState({});
+  const [playingAudio, setPlayingAudio] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -22,6 +25,16 @@ const ChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (playingAudio) {
+        playingAudio.pause();
+        setPlayingAudio(null);
+      }
+    };
+  }, [playingAudio]);
 
   const handleSendMessage = async (messageText = null, currentMessages = null, manageLoading = true) => {
     const messageToSend = messageText || inputValue.trim();
@@ -60,13 +73,11 @@ const ChatPage = () => {
       const aiMessages = await chatService.sendMessage('default-thread', apiMessages, language);
       
       if (aiMessages && aiMessages.length > 0) {
-        aiMessages.forEach(msg => {
-          const messageWithTimestamp = {
-            ...msg,
-            timestamp: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, messageWithTimestamp]);
-        });
+        const messagesWithTimestamp = aiMessages.map(msg => ({
+          ...msg,
+          timestamp: new Date().toISOString()
+        }));
+        setMessages(prev => [...prev, ...messagesWithTimestamp]);
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -94,6 +105,73 @@ const ChatPage = () => {
     setMessages([]);
   };
 
+  // Utility function to clean markdown formatting for text-to-speech
+  const cleanMarkdownForTTS = (text) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold **text**
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic *text*
+      .replace(/`(.*?)`/g, '$1') // Remove code `text`
+      .replace(/#{1,6}\s/g, '') // Remove headers # ## ###
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links [text](url) -> text
+      .replace(/^\s*[-*+]\s/gm, '') // Remove list bullets
+      .replace(/^\s*\d+\.\s/gm, '') // Remove numbered lists
+      .replace(/\n{2,}/g, '. ') // Replace multiple newlines with period and space
+      .replace(/\n/g, ' ') // Replace single newlines with space
+      .trim();
+  };
+
+  const handleTextToSpeech = async (text, messageIndex) => {
+    try {
+      // Stop any currently playing audio
+      if (playingAudio) {
+        playingAudio.pause();
+        setPlayingAudio(null);
+      }
+
+      // Set loading state for this message
+      setTtsLoading(prev => ({ ...prev, [messageIndex]: true }));
+
+      // Clean markdown formatting from text before sending to TTS
+      const cleanText = cleanMarkdownForTTS(text);
+
+      // Call TTS service
+      const result = await chatService.textToSpeech(cleanText, language);
+      
+      if (result.success && result.audio_data) {
+        // Convert base64 to audio blob
+        const audioBytes = atob(result.audio_data);
+        const audioArray = new Uint8Array(audioBytes.length);
+        for (let i = 0; i < audioBytes.length; i++) {
+          audioArray[i] = audioBytes.charCodeAt(i);
+        }
+        const audioBlob = new Blob([audioArray], { type: 'audio/mp3' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Create and play audio
+        const audio = new Audio(audioUrl);
+        setPlayingAudio(audio);
+        
+        audio.onended = () => {
+          setPlayingAudio(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        audio.onerror = () => {
+          console.error('Audio playback failed');
+          setPlayingAudio(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        await audio.play();
+      }
+    } catch (error) {
+      console.error('Text-to-speech failed:', error);
+      // Could show a toast or error message here
+    } finally {
+      setTtsLoading(prev => ({ ...prev, [messageIndex]: false }));
+    }
+  };
+
   const handleVoiceQuery = async (audioFile, language) => {
     try {
       setIsLoading(true);
@@ -111,16 +189,13 @@ const ChatPage = () => {
           timestamp: new Date().toISOString(),
         };
         
-        // Update messages with user message first
-        setMessages(prev => {
-          const newMessages = [...prev, userMessage];
-          
-          // Now send the transcription through normal chat flow (like Streamlit)
-          // Don't let handleSendMessage manage loading since we're managing it here
-          handleSendMessage(transcriptionText, newMessages, false);
-          
-          return newMessages;
-        });
+        // Add user message first
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
+        
+        // Now send the transcription through normal chat flow (like Streamlit)
+        // Don't let handleSendMessage manage loading since we're managing it here
+        await handleSendMessage(transcriptionText, newMessages, false);
       } else if (result.answer) {
         // Fallback: if no transcription but has answer, use the old flow
         const userMessage = {
@@ -180,20 +255,18 @@ const ChatPage = () => {
           )}
           
           {messages.map((message, index) => (
-            <div
+            <ChatMessage
               key={index}
-              className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-700 text-gray-100'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              </div>
-            </div>
+              message={message}
+              index={index}
+              onTextToSpeech={handleTextToSpeech}
+              ttsLoading={ttsLoading}
+              typingMessageIndex={null} // No typing animation in ChatPage
+              customStyles={{
+                user: 'bg-red-600 text-white',
+                assistant: 'bg-gray-700 text-gray-100'
+              }}
+            />
           ))}
           
           {isLoading && (

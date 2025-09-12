@@ -12,9 +12,11 @@ import {
   LoginPage,
   OTPVerificationPage,
   UserRegistrationPage,
-} from "./pages";
-import { ChatProvider, DocumentProvider, AuthProvider } from "./context";
-import { withOTPSession } from "./components/ProtectedRoute";
+  LocationPage,
+  CropSchedulerPage 
+} from './pages';
+import { ChatProvider, DocumentProvider, AuthProvider } from './context';
+import { withOTPSession } from './components/ProtectedRoute';
 
 // Wrap OTP-required pages with session check
 const ProtectedOTPVerificationPage = withOTPSession(OTPVerificationPage);
@@ -72,6 +74,8 @@ function App() {
                   //  </ProtectedRoute>
                 }
               />
+              <Route path="location" element={<LocationPage />} />
+              <Route path="crop-scheduler" element={<CropSchedulerPage />} />
               <Route path="contact" element={<ContactPage />} />
               <Route path="faq" element={<FaqPage />} />
               <Route path="*" element={<NotFoundPage />} />
