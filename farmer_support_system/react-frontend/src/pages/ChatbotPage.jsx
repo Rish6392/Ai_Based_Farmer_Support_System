@@ -528,9 +528,6 @@ const ChatbotPage = () => {
         onNewChat={handleNewChat}
         language={language}
         onLanguageChange={setLanguage}
-        voiceLanguage={voiceLanguage}
-        onVoiceLanguageChange={setVoiceLanguage}
-        onVoiceQuery={handleVoiceQuery}
         knowledgeBaseStatus={knowledgeBaseStatus}
         isLoading={isLoading}
         quickQuestions={quickQuestions}
@@ -552,6 +549,8 @@ const ChatbotPage = () => {
               onKeyPress={handleKeyPress}
               disabled={isLoading}
               isCentered={true}
+              onVoiceQuery={handleVoiceQuery}
+              voiceLanguage={language}
             />
           </div>
         ) : (
@@ -592,6 +591,8 @@ const ChatbotPage = () => {
               onKeyPress={handleKeyPress}
               disabled={isLoading}
               isCentered={false}
+              onVoiceQuery={handleVoiceQuery}
+              voiceLanguage={language}
             />
           </>
         )}

@@ -71,6 +71,7 @@ const ChatMessage = ({
           ) : (
             <div className="prose prose-sm max-w-none">
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                   strong: ({ children }) => (
@@ -86,6 +87,48 @@ const ChatMessage = ({
                   ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
                   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto mb-4">
+                      <table className={cn(
+                        "min-w-full divide-y border rounded-lg",
+                        isUser ? "divide-blue-200 border-blue-200" : "divide-gray-200 border-gray-200"
+                      )}>
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  thead: ({ children }) => (
+                    <thead className={cn(
+                      isUser ? "bg-blue-50" : "bg-gray-50"
+                    )}>
+                      {children}
+                    </thead>
+                  ),
+                  tbody: ({ children }) => (
+                    <tbody className={cn(
+                      "divide-y",
+                      isUser ? "divide-blue-200 bg-blue-25" : "divide-gray-200 bg-white"
+                    )}>
+                      {children}
+                    </tbody>
+                  ),
+                  tr: ({ children }) => <tr>{children}</tr>,
+                  th: ({ children }) => (
+                    <th className={cn(
+                      "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider",
+                      isUser ? "text-blue-800" : "text-gray-700"
+                    )}>
+                      {children}
+                    </th>
+                  ),
+                  td: ({ children }) => (
+                    <td className={cn(
+                      "px-4 py-3 text-sm whitespace-nowrap",
+                      isUser ? "text-blue-900" : "text-gray-700"
+                    )}>
+                      {children}
+                    </td>
+                  ),
                   code: ({ children }) => (
                     <code className={cn(
                       "px-2 py-1 rounded text-xs font-mono",

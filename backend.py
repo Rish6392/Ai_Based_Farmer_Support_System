@@ -72,9 +72,11 @@ except Exception as e:
 # -------------------- LLM Setup --------------------
 from langchain_groq import ChatGroq
 
-llm = ChatGroq(
-    api_key=os.getenv("GROQ_API_KEY"),
-    model="openai/gpt-oss-120b",
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    model="gpt-4o-mini",  # You can change to "gpt-4" if you have access
     temperature=0.7,
 )
 

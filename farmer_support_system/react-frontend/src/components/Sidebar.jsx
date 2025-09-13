@@ -5,14 +5,10 @@ import {
   Settings, 
   ChevronLeft, 
   ChevronRight,
-  Volume2,
-  Mic,
   Globe,
-  Database,
-  Sparkles
+  Database
 } from 'lucide-react';
-import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
-import VoiceRecorder from './VoiceRecorder';
+import { LANGUAGES } from '../utils/constants';
 import { cn } from '../utils/cn';
 
 const Sidebar = ({ 
@@ -21,9 +17,6 @@ const Sidebar = ({
   onNewChat,
   language,
   onLanguageChange,
-  voiceLanguage,
-  onVoiceLanguageChange,
-  onVoiceQuery,
   knowledgeBaseStatus,
   isLoading,
   quickQuestions,
@@ -50,44 +43,46 @@ const Sidebar = ({
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        {!isCollapsed && (
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">KisanSewa</h2>
-              <p className="text-xs text-gray-500">AI Farming Assistant</p>
-            </div>
+      {/* New Chat Button with Toggle */}
+      <div className="p-2">
+        {isCollapsed ? (
+          // Collapsed layout - stack vertically
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={onNewChat}
+              className="flex items-center justify-center w-12 h-10 mx-auto bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            
+            {/* Toggle Button */}
+            <button
+              onClick={onToggle}
+              className="flex items-center justify-center w-12 h-8 mx-auto rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          // Expanded layout - side by side
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onNewChat}
+              className="flex items-center justify-center space-x-2 flex-1 py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">New Chat</span>
+            </button>
+            
+            {/* Toggle Button */}
+            <button
+              onClick={onToggle}
+              className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           </div>
         )}
-        
-        {/* Toggle Button */}
-        <button
-          onClick={onToggle}
-          className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 transition-colors",
-            isCollapsed ? "mx-auto mt-2" : "ml-auto -mr-1"
-          )}
-        >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* New Chat Button */}
-      <div className="p-4">
-        <button
-          onClick={onNewChat}
-          className={cn(
-            "flex items-center justify-center space-x-2 w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-sm hover:shadow-md",
-            isCollapsed ? "px-2" : ""
-          )}
-        >
-          <Plus className="w-4 h-4" />
-          {!isCollapsed && <span className="text-sm font-medium">New Chat</span>}
-        </button>
       </div>
 
       {/* Navigation */}
@@ -121,19 +116,7 @@ const Sidebar = ({
             {!isCollapsed && <span>Settings</span>}
           </button>
 
-          {/* Voice Section */}
-          <button
-            onClick={() => setActiveSection('voice')}
-            className={cn(
-              "flex items-center space-x-3 w-full px-3 py-2 rounded-lg transition-colors text-sm",
-              activeSection === 'voice' 
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
-                : "text-gray-600 hover:bg-gray-50"
-            )}
-          >
-            <Mic className="w-4 h-4" />
-            {!isCollapsed && <span>Voice Input</span>}
-          </button>
+
 
           {/* Status Section */}
           <button
@@ -206,43 +189,7 @@ const Sidebar = ({
               </div>
             )}
 
-            {/* Voice Input */}
-            {activeSection === 'voice' && (
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Mic className="w-4 h-4 text-blue-600" />
-                    <h3 className="font-medium text-blue-900 text-sm">Voice Input</h3>
-                  </div>
-                  <p className="text-xs text-blue-700 mb-4">
-                    Record your question and get instant advice in your preferred language.
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
-                        Speech Language
-                      </label>
-                      <select
-                        value={voiceLanguage}
-                        onChange={(e) => onVoiceLanguageChange(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      >
-                        {VOICE_LANGUAGES.map(lang => (
-                          <option key={lang} value={lang}>{lang}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <VoiceRecorder 
-                      onVoiceQuery={onVoiceQuery}
-                      voiceLanguage={voiceLanguage}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             {/* System Status */}
             {activeSection === 'status' && (
