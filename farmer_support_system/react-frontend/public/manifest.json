@@ -12,27 +12,27 @@
   "categories": ["agriculture", "utilities", "productivity"],
   "icons": [
     {
-      "src": "/icon-192x192.svg",
+      "src": "/logo.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png"
     },
     {
-      "src": "/icon-512x512.svg",
+      "src": "/logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     },
     {
-      "src": "/vite.svg",
+      "src": "/logo.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
   "screenshots": [
     {
-      "src": "/vite.svg",
+      "src": "/logo.png",
       "sizes": "1280x720",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "form_factor": "wide"
     }
   ]

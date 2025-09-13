@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Home, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import VoiceRecorder from '../components/VoiceRecorder';
 import { useChat } from '../context/ChatContext';
-import chatService from '../services/chatService';
+import {chatService} from '../services/chatService';
 
 const VoicePage = () => {
   const navigate = useNavigate();

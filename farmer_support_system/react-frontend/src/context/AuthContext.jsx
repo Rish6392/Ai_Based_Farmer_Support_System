@@ -78,6 +78,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Existing user, fetch profile
           const profileResponse = await authService.getUserProfile(mobileNumber);
+          console.log("profileResponse:", profileResponse);
           if (profileResponse.success) {
             setUser(profileResponse.user);
             setIsAuthenticated(true);

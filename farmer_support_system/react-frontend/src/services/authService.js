@@ -17,11 +17,11 @@ const sendOTP = async (mobileNumber) => {
     setTimeout(() => {}, 1000); // Simulate network delay
     let response = {
       ok: true,
-      error:null,
-      success:true,
+      error: null,
+      success: true,
       message: "otp sent successfully",
       expires_at: new Date(new Date().getTime() + 50 * 60000).toISOString(), // OTP valid for 50 minutes
-    }
+    };
 
     console.log("response:", response);
     if (!response.ok) {
@@ -59,17 +59,16 @@ const verifyOTP = async (mobileNumber, otp) => {
     //   }),
     // });
 
-    setTimeout( () => {},1000);
+    setTimeout(() => {}, 1000);
 
     let response = {
       ok: true,
       error: null,
       access_token: "my name is ravi",
-      success:true,
+      success: true,
       message: "otp verified",
       is_new_user: false,
-
-    }
+    };
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || "Failed to verify OTP");
@@ -93,15 +92,15 @@ const verifyOTP = async (mobileNumber, otp) => {
   } catch (error) {
     console.error("Error verifying OTP:", error);
     let errorMessage = "Network error. Please try again.";
-    
+
     if (error.message) {
       errorMessage = error.message;
-    } else if (typeof error === 'string') {
+    } else if (typeof error === "string") {
       errorMessage = error;
     } else if (error.detail) {
       errorMessage = error.detail;
     }
-    
+
     return {
       success: false,
       message: errorMessage,
@@ -169,6 +168,7 @@ const getUserProfile = async (phoneNumber) => {
     //     },
     //   }
     // );
+
     let response = {
       ok: true,
       error: null,
@@ -189,8 +189,8 @@ const getUserProfile = async (phoneNumber) => {
       throw new Error(errorData.detail || "Failed to get user profile");
     }
 
-    const data = await response;  
-    
+    // const data = await response.json();
+    const data = await response;
     return {
       success: true,
       user: data,
