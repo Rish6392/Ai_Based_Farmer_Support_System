@@ -74,7 +74,7 @@ from langchain_groq import ChatGroq
 
 llm = ChatGroq(
     api_key=os.getenv("GROQ_API_KEY"),
-    model="groq/compound-mini",
+    model="moonshotai/kimi-k2-instruct",
     temperature=0.7,
 )
 

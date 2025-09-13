@@ -13,7 +13,8 @@ import {
   OTPVerificationPage,
   UserRegistrationPage,
   LocationPage,
-  CropSchedulerPage 
+  CropSchedulerPage,
+  VoicePage
 } from './pages';
 import { ChatProvider, DocumentProvider, AuthProvider } from './context';
 import { withOTPSession } from './components/ProtectedRoute';
@@ -55,6 +56,14 @@ function App() {
                 element={
                   // <ProtectedRoute>
                   <ChatbotPage />
+                  // </ProtectedRoute>
+                }
+              />
+              <Route
+                path="voice"
+                element={
+                  // <ProtectedRoute>
+                  <VoicePage />
                   // </ProtectedRoute>
                 }
               />

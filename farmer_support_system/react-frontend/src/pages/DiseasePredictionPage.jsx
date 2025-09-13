@@ -61,9 +61,32 @@ const DiseasePredictionPage = () => {
 
   const handleAskAboutPrediction = () => {
     if (predictionResults?.prediction) {
-      const question = `I just received a disease prediction of '${predictionResults.prediction}' from an uploaded image. Can you tell me more about this condition?`;
+      // Create a detailed question with prediction data
+      const confidence = getConfidence();
+      const topProbabilities = getProbabilityData().slice(0, 3);
+      
+      let question = `I just analyzed a plant image and received these disease prediction results:\n\n`;
+      question += `🔍 **Primary Prediction**: ${predictionResults.prediction}\n`;
+      question += `📊 **Confidence Level**: ${confidence.toFixed(1)}%\n\n`;
+      
+      if (topProbabilities.length > 0) {
+        question += `📈 **Top Predictions**:\n`;
+        topProbabilities.forEach((item, index) => {
+          question += `${index + 1}. ${item.class}: ${item.probability.toFixed(1)}%\n`;
+        });
+        question += `\n`;
+      }
+      
+      question += `💡 **Please provide**:\n`;
+      question += `• Detailed information about this plant condition\n`;
+      question += `• Treatment recommendations and remedies\n`;
+      question += `• Prevention strategies for future occurrences\n`;
+      question += `• Any immediate steps I should take\n`;
+      question += `• Expected timeline for recovery\n\n`;
+      question += `Thank you for your expert agricultural advice!`;
+
       setPendingInput(question);
-      navigateToChat(question); // Navigate to chat page with the question
+      navigateToChat(question); // Navigate to chat page with the detailed question
     }
   };
 

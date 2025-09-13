@@ -160,22 +160,37 @@ const completeRegistration = async (registrationData) => {
 // Get user profile
 const getUserProfile = async (phoneNumber) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/auth/user-profile?phone_number=${phoneNumber}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // const response = await fetch(
+    //   `${API_BASE_URL}/auth/user-profile?phone_number=${phoneNumber}`,
+    //   {
+    //     method: "GET",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //   }
+    // );
+    let response = {
+      ok: true,
+      error: null,
+
+      id: 1,
+      phone_number: phoneNumber,
+      name: "Ravi Kumar",
+      state: "Karnataka",
+      district: "Bangalore",
+      primary_crop: "Rice",
+
+      success: true,
+      message: "user profile fetched successfully",
+    };
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || "Failed to get user profile");
     }
 
-    const data = await response.json();
+    const data = await response;  
+    
     return {
       success: true,
       user: data,

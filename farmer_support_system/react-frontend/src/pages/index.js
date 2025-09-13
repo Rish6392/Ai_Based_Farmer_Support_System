@@ -12,3 +12,4 @@ export { default as OTPVerificationPage } from './OTPVerificationPage';
 export { default as UserRegistrationPage } from './UserRegistrationPage';
 export { default as LocationPage } from './LocationPage';
 export { default as CropSchedulerPage } from './CropSchedulerPage';
+export { default as VoicePage } from './VoicePage';

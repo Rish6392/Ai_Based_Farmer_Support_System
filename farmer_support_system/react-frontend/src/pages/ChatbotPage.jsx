@@ -1,10 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
 import { chatService } from '../services';
 import { Sidebar, ChatMessage, ChatInput, LoadingIndicator } from '../components';
+import { useChat } from '../context/ChatContext';
 import { cn } from '../utils/cn';
 
 const ChatbotPage = () => {
+  const location = useLocation();
+  const { pendingInput, setPendingInput } = useChat();
+  
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [language, setLanguage] = useState('English');
@@ -30,6 +35,94 @@ const ChatbotPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Handle navigation state and pendingInput
+  useEffect(() => {
+    const queryFromNavigation = location.state?.query;
+    
+    if (queryFromNavigation) {
+      // Set input message from navigation state and send it
+      setInputMessage(queryFromNavigation);
+      // Clear the navigation state by replacing it
+      window.history.replaceState({}, document.title, location.pathname);
+      
+      // Create user message and send it
+      const userMessage = {
+        role: 'user',
+        content: queryFromNavigation,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setInputMessage('');
+      
+      // Send to AI
+      setTimeout(async () => {
+        setIsLoading(true);
+        try {
+          const apiMessages = [{role: 'user', content: queryFromNavigation}];
+          const aiMessages = await chatService.sendMessage(currentThreadId, apiMessages, language);
+          
+          if (aiMessages && aiMessages.length > 0) {
+            const newAIMessages = aiMessages.map(msg => ({
+              ...msg,
+              timestamp: new Date().toISOString()
+            }));
+            setMessages(prev => [...prev, ...newAIMessages]);
+          }
+        } catch (error) {
+          console.error('Failed to send message:', error);
+          const errorMessage = {
+            role: 'assistant',
+            content: `Failed to send message: ${error.message}. Please check if the backend server is running on http://localhost:8000`,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 100);
+    } else if (pendingInput) {
+      // Similar handling for pendingInput
+      setInputMessage(pendingInput);
+      setPendingInput(null);
+      
+      // Create user message and send it
+      const userMessage = {
+        role: 'user',
+        content: pendingInput,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setInputMessage('');
+      
+      // Send to AI
+      setTimeout(async () => {
+        setIsLoading(true);
+        try {
+          const apiMessages = [{role: 'user', content: pendingInput}];
+          const aiMessages = await chatService.sendMessage(currentThreadId, apiMessages, language);
+          
+          if (aiMessages && aiMessages.length > 0) {
+            const newAIMessages = aiMessages.map(msg => ({
+              ...msg,
+              timestamp: new Date().toISOString()
+            }));
+            setMessages(prev => [...prev, ...newAIMessages]);
+          }
+        } catch (error) {
+          console.error('Failed to send message:', error);
+          const errorMessage = {
+            role: 'assistant',
+            content: `Failed to send message: ${error.message}. Please check if the backend server is running on http://localhost:8000`,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 100);
+    }
+  }, [location.state, pendingInput, setPendingInput, currentThreadId, language]);
 
   // Initialize with empty messages for centered input
   // Welcome message will be added after first user message

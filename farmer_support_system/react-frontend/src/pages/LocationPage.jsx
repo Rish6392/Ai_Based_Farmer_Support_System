@@ -272,321 +272,327 @@ const LocationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50 flex flex-col">
       {/* Header */}
       <div className="bg-white shadow-lg border-b">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                onClick={() => navigate('/')} 
-                variant="outline" 
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Home</span>
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                  <MapPin className="w-8 h-8 mr-3 text-green-600" />
-                  🌱 Smart Crop Recommender
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Find the perfect crop for your land using AI-powered analysis and live weather data
-                </p>
-              </div>
-            </div>
+            <Button 
+              onClick={() => navigate('/')} 
+              variant="outline" 
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Home</span>
+            </Button>
           </div>
         </div>
       </div>
-
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        
-        {/* Alerts Section */}
-        {alerts.length > 0 && (
-          <div className="mb-8 space-y-3">
-            {alerts.map((alert, index) => (
-              <Alert key={index} type={alert.type}>
-                <div className="flex items-start">
-                  <AlertTriangle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
-                  <span>{alert.message}</span>
-                </div>
-              </Alert>
-            ))}
-          </div>
-        )}
-
-        {/* Weather & Location Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
-          <div className="flex items-center mb-6">
-            <Cloud className="w-6 h-6 mr-3 text-blue-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Location & Weather Data</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Kerala District
-              </label>
-              <select
-                value={formData.selectedDistrict}
-                onChange={(e) => updateFormData('selectedDistrict', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
-              >
-                {Object.keys(KERALA_DISTRICTS).map(district => (
-                  <option key={district} value={district}>{district}</option>
-                ))}
-              </select>
+      
+      {/* Hero Section - Centered */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="text-center mb-8 max-w-4xl">
+          <div className="mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-400 to-blue-500 rounded-full shadow-lg mb-4">
+              <MapPin className="w-12 h-12 text-white" />
             </div>
-            
-
-            
-            <div className="md:col-span-1 flex items-end">
-              <Button
-                onClick={handleFetchWeather}
-                loading={weatherLoading}
-                // disabled={!formData.apiKey}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
-              >
-                {weatherLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <CloudRain className="w-4 h-4 mr-2" />
-                )}
-                Fetch Live Weather
-              </Button>
-            </div>
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+              🌱 Smart Crop Recommender
+            </h1>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Find the perfect crop for your land using AI-powered analysis and live weather data
+            </p>
           </div>
+        </div>
 
-          {/* Weather Display */}
-          {weatherData && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <Sun className="w-5 h-5 mr-2 text-yellow-600" />
-                Current Weather Conditions for {formData.selectedDistrict}
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg p-4 text-center shadow-sm">
-                  <Thermometer className="w-6 h-6 mx-auto text-red-500 mb-2" />
-                  <p className="text-sm text-gray-600">Temperature</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {weatherData.temperature.toFixed(1)}°C
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-4 text-center shadow-sm">
-                  <Droplets className="w-6 h-6 mx-auto text-blue-500 mb-2" />
-                  <p className="text-sm text-gray-600">Humidity</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {weatherData.humidity}%
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-4 text-center shadow-sm">
-                  <CloudRain className="w-6 h-6 mx-auto text-gray-500 mb-2" />
-                  <p className="text-sm text-gray-600">24h Rainfall</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {weatherData.totalRainfall.toFixed(1)}mm
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-4 text-center shadow-sm">
-                  <Wind className="w-6 h-6 mx-auto text-green-500 mb-2" />
-                  <p className="text-sm text-gray-600">Wind Speed</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {weatherData.windSpeed.toFixed(1)} km/h
-                  </p>
-                </div>
-              </div>
+        {/* Main Content Container - Centered */}
+        <div className="w-full max-w-7xl mx-auto">
+          {/* Alerts Section */}
+          {alerts.length > 0 && (
+            <div className="mb-8 space-y-3">
+              {alerts.map((alert, index) => (
+                <Alert key={index} type={alert.type}>
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
+                    <span>{alert.message}</span>
+                  </div>
+                </Alert>
+              ))}
             </div>
           )}
-        </div>
 
-        {/* Input Parameters Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          
-          {/* Soil Parameters */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          {/* Weather & Location Section */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
             <div className="flex items-center mb-6">
-              <FlaskConical className="w-6 h-6 mr-3 text-green-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Soil Parameters</h2>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nitrogen (N) - kg/ha
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="150"
-                  value={formData.nitrogen}
-                  onChange={(e) => updateFormData('nitrogen', parseFloat(e.target.value) || 0)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">Essential for leaf growth and protein synthesis</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phosphorous (P) - kg/ha
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="150"
-                  value={formData.phosphorous}
-                  onChange={(e) => updateFormData('phosphorous', parseFloat(e.target.value) || 0)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">Important for root development and flowering</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Potassium (K) - kg/ha
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="210"
-                  value={formData.potassium}
-                  onChange={(e) => updateFormData('potassium', parseFloat(e.target.value) || 0)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">Enhances disease resistance and water regulation</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Soil pH Value
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="14"
-                  step="0.1"
-                  value={formData.pH}
-                  onChange={(e) => updateFormData('pH', parseFloat(e.target.value) || 0)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">Scale from 0-14, neutral is 7.0</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Environmental Parameters */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="flex items-center mb-6">
-              <Thermometer className="w-6 h-6 mr-3 text-orange-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Environmental Conditions</h2>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Average Temperature (°C)
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  step="0.1"
-                  value={formData.temperature}
-                  onChange={(e) => updateFormData('temperature', parseFloat(e.target.value))}
-                  className="w-full mb-2"
-                />
-                <div className="text-center">
-                  <span className="text-2xl font-bold text-gray-800">{formData.temperature.toFixed(1)}°C</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Optimal range varies by crop type</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Relative Humidity (%)
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={formData.humidity}
-                  onChange={(e) => updateFormData('humidity', parseFloat(e.target.value))}
-                  className="w-full mb-2"
-                />
-                <div className="text-center">
-                  <span className="text-2xl font-bold text-gray-800">{formData.humidity.toFixed(1)}%</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Affects pest and disease development</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seasonal Rainfall (mm)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="400"
-                  step="0.1"
-                  value={formData.rainfall}
-                  onChange={(e) => updateFormData('rainfall', parseFloat(e.target.value) || 0)}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter total seasonal rainfall"
-                />
-                <p className="text-xs text-gray-500 mt-1">Total rainfall expected during entire growing season</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Prediction Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center space-y-6">
-            <div className="flex items-center justify-center mb-6">
-              <Sprout className="w-8 h-8 mr-3 text-green-600" />
-              <h2 className="text-3xl font-bold text-gray-900">AI Crop Recommendation</h2>
+              <Cloud className="w-6 h-6 mr-3 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Location & Weather Data</h2>
             </div>
             
-            <Button
-              onClick={handleCropPrediction}
-              loading={predictionLoading}
-              disabled={predictionLoading}
-              className="bg-green-600 hover:bg-green-700 text-white px-12 py-4 text-xl font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              size="lg"
-            >
-              {predictionLoading ? (
-                <>
-                  <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                  Analyzing Your Conditions...
-                </>
-              ) : (
-                <>
-                  <Leaf className="w-6 h-6 mr-3" />
-                  🌾 Get Crop Recommendation
-                </>
-              )}
-            </Button>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Kerala District
+                </label>
+                <select
+                  value={formData.selectedDistrict}
+                  onChange={(e) => updateFormData('selectedDistrict', e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                >
+                  {Object.keys(KERALA_DISTRICTS).map(district => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
+                </select>
+              </div>
+              
 
-            {prediction && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 border-2 border-green-200 mt-8">
-                <div className="text-center space-y-4">
-                  <h3 className="text-2xl font-semibold text-gray-800">
-                    🎯 Recommended Crop for Your Land:
-                  </h3>
-                  <div className="bg-white rounded-xl p-6 shadow-lg border border-green-100">
-                    <p className="text-5xl font-bold text-green-600 mb-4">
-                      {prediction.charAt(0).toUpperCase() + prediction.slice(1)}
-                    </p>
-                    <p className="text-gray-600 text-lg">
-                      Based on your soil conditions, environmental factors, and current weather data
+              
+              <div className="md:col-span-1 flex items-end">
+                <Button
+                  onClick={handleFetchWeather}
+                  loading={weatherLoading}
+                  // disabled={!formData.apiKey}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                >
+                  {weatherLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CloudRain className="w-4 h-4 mr-2" />
+                  )}
+                  Fetch Live Weather
+                </Button>
+              </div>
+            </div>
+
+            {/* Weather Display */}
+            {weatherData && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Sun className="w-5 h-5 mr-2 text-yellow-600" />
+                  Current Weather Conditions for {formData.selectedDistrict}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                    <Thermometer className="w-6 h-6 mx-auto text-red-500 mb-2" />
+                    <p className="text-sm text-gray-600">Temperature</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {weatherData.temperature.toFixed(1)}°C
                     </p>
                   </div>
-                  <Button
-                    onClick={handleAskAboutCrop}
-                    variant="outline"
-                    className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white px-8 py-3 text-lg font-medium rounded-xl"
-                  >
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    💬 Get Cultivation Guide for {prediction}
-                  </Button>
+                  <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                    <Droplets className="w-6 h-6 mx-auto text-blue-500 mb-2" />
+                    <p className="text-sm text-gray-600">Humidity</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {weatherData.humidity}%
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                    <CloudRain className="w-6 h-6 mx-auto text-gray-500 mb-2" />
+                    <p className="text-sm text-gray-600">24h Rainfall</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {weatherData.totalRainfall.toFixed(1)}mm
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                    <Wind className="w-6 h-6 mx-auto text-green-500 mb-2" />
+                    <p className="text-sm text-gray-600">Wind Speed</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {weatherData.windSpeed.toFixed(1)} km/h
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Input Parameters Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            {/* Soil Parameters */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
+              <div className="flex items-center mb-6">
+                <FlaskConical className="w-6 h-6 mr-3 text-green-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Soil Parameters</h2>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nitrogen (N) - kg/ha
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={formData.nitrogen}
+                    onChange={(e) => updateFormData('nitrogen', parseFloat(e.target.value) || 0)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Essential for leaf growth and protein synthesis</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phosphorous (P) - kg/ha
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={formData.phosphorous}
+                    onChange={(e) => updateFormData('phosphorous', parseFloat(e.target.value) || 0)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Important for root development and flowering</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Potassium (K) - kg/ha
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="210"
+                    value={formData.potassium}
+                    onChange={(e) => updateFormData('potassium', parseFloat(e.target.value) || 0)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enhances disease resistance and water regulation</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Soil pH Value
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="14"
+                    step="0.1"
+                    value={formData.pH}
+                    onChange={(e) => updateFormData('pH', parseFloat(e.target.value) || 0)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Scale from 0-14, neutral is 7.0</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Environmental Parameters */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
+              <div className="flex items-center mb-6">
+                <Thermometer className="w-6 h-6 mr-3 text-orange-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Environmental Conditions</h2>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Average Temperature (°C)
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="0.1"
+                    value={formData.temperature}
+                    onChange={(e) => updateFormData('temperature', parseFloat(e.target.value))}
+                    className="w-full mb-2"
+                  />
+                  <div className="text-center">
+                    <span className="text-2xl font-bold text-gray-800">{formData.temperature.toFixed(1)}°C</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Optimal range varies by crop type</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Relative Humidity (%)
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={formData.humidity}
+                    onChange={(e) => updateFormData('humidity', parseFloat(e.target.value))}
+                    className="w-full mb-2"
+                  />
+                  <div className="text-center">
+                    <span className="text-2xl font-bold text-gray-800">{formData.humidity.toFixed(1)}%</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Affects pest and disease development</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seasonal Rainfall (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="400"
+                    step="0.1"
+                    value={formData.rainfall}
+                    onChange={(e) => updateFormData('rainfall', parseFloat(e.target.value) || 0)}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter total seasonal rainfall"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Total rainfall expected during entire growing season</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Prediction Section */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
+            <div className="text-center space-y-6">
+              <div className="flex items-center justify-center mb-6">
+                <Sprout className="w-8 h-8 mr-3 text-green-600" />
+                <h2 className="text-3xl font-bold text-gray-900">AI Crop Recommendation</h2>
+              </div>
+              
+              <Button
+                onClick={handleCropPrediction}
+                loading={predictionLoading}
+                disabled={predictionLoading}
+                className="bg-green-600 hover:bg-green-700 text-white px-12 py-4 text-xl font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                size="lg"
+              >
+                {predictionLoading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                    Analyzing Your Conditions...
+                  </>
+                ) : (
+                  <>
+                    <Leaf className="w-6 h-6 mr-3" />
+                    🌾 Get Crop Recommendation
+                  </>
+                )}
+              </Button>
+
+              {prediction && (
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 border-2 border-green-200 mt-8">
+                  <div className="text-center space-y-4">
+                    <h3 className="text-2xl font-semibold text-gray-800">
+                      🎯 Recommended Crop for Your Land:
+                    </h3>
+                    <div className="bg-white rounded-xl p-6 shadow-lg border border-green-100">
+                      <p className="text-5xl font-bold text-green-600 mb-4">
+                        {prediction.charAt(0).toUpperCase() + prediction.slice(1)}
+                      </p>
+                      <p className="text-gray-600 text-lg">
+                        Based on your soil conditions, environmental factors, and current weather data
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleAskAboutCrop}
+                      variant="outline"
+                      className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white px-8 py-3 text-lg font-medium rounded-xl"
+                    >
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      💬 Get Cultivation Guide for {prediction}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

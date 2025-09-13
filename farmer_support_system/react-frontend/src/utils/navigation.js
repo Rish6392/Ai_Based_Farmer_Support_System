@@ -5,7 +5,7 @@ export const useAppNavigation = () => {
   const navigate = useNavigate();
 
   const navigateToChat = (query = null) => {
-    navigate('/', { state: { query } });
+    navigate('/chat', { state: { query } });
   };
 
   const navigateToDiseasePrediction = () => {
@@ -27,7 +27,7 @@ export const useAppNavigation = () => {
 // Route constants for consistency
 export const ROUTES = {
   HOME: '/',
-  CHAT: '/',
+  CHAT: '/chat',
   DISEASE_PREDICTION: '/disease-prediction',
   DASHBOARD: '/dashboard',
 };

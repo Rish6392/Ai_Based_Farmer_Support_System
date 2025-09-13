@@ -349,362 +349,368 @@ const CropSchedulerPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50 flex flex-col">
       {/* Header */}
       <div className="bg-white shadow-lg border-b">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                onClick={() => navigate('/')} 
-                variant="outline" 
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Home</span>
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                  <Calendar className="w-8 h-8 mr-3 text-orange-600" />
-                  🗓️ AI-Powered Crop Scheduler
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Plan your farming activities with intelligent scheduling and weather-aware recommendations
-                </p>
-              </div>
-            </div>
+            <Button 
+              onClick={() => navigate('/')} 
+              variant="outline" 
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Home</span>
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div className="mb-8 space-y-3">
-            {alerts.map((alert, index) => (
-              <Alert key={index} type={alert.type}>
-                <AlertCircle className="w-4 h-4 mr-2" />
-                {alert.message}
-              </Alert>
-            ))}
-          </div>
-        )}
-
-        {/* Input Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
-          <div className="flex items-center mb-6">
-            <Sprout className="w-6 h-6 mr-3 text-green-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Crop Activity Planning</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🌾 Select Your Crop Type
-                </label>
-                <select
-                  value={formData.selectedCrop}
-                  onChange={(e) => updateFormData('selectedCrop', e.target.value)}
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
-                >
-                  {cropOptions.map(crop => (
-                    <option key={crop} value={crop}>{crop}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ✅ What activity did you just complete?
-                </label>
-                <select
-                  value={formData.lastActivity}
-                  onChange={(e) => updateFormData('lastActivity', e.target.value)}
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
-                >
-                  <option value="">Select completed activity...</option>
-                  {(activityStages[formData.selectedCrop] || []).map(activity => (
-                    <option key={activity} value={activity}>{activity}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📅 On what date did you complete it?
-                </label>
-                <input
-                  type="date"
-                  value={formData.activityDate}
-                  onChange={(e) => updateFormData('activityDate', e.target.value)}
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
-                />
-              </div>
+      {/* Hero Section - Centered */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="text-center mb-8 max-w-4xl">
+          <div className="mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-full shadow-lg mb-4">
+              <Calendar className="w-12 h-12 text-white" />
             </div>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📍 Farm Location (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.farmLocation}
-                  onChange={(e) => updateFormData('farmLocation', e.target.value)}
-                  placeholder="e.g., Ernakulam, Kerala"
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🌾 Farm Size (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.farmSize}
-                  onChange={(e) => updateFormData('farmSize', e.target.value)}
-                  placeholder="e.g., 2 acres, 1 hectare"
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
-                />
-              </div>
-
-              {/* Advanced Options Toggle */}
-              <div>
-                <button
-                  onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                  className="flex items-center text-orange-600 hover:text-orange-700 font-medium"
-                >
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  {showAdvancedOptions ? '🔼 Hide Advanced Options' : '🔽 Show Advanced Options'}
-                </button>
-              </div>
-
-              {/* Advanced Options */}
-              {showAdvancedOptions && (
-                <div className="space-y-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-dashed border-blue-200">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      🏔️ Soil Type
-                    </label>
-                    <select
-                      value={formData.soilType}
-                      onChange={(e) => updateFormData('soilType', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-                    >
-                      <option value="">Select soil type...</option>
-                      {soilTypes.map(soil => (
-                        <option key={soil} value={soil}>{soil}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      💧 Irrigation Type
-                    </label>
-                    <select
-                      value={formData.irrigationType}
-                      onChange={(e) => updateFormData('irrigationType', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-                    >
-                      <option value="">Select irrigation method...</option>
-                      {irrigationTypes.map(irrigation => (
-                        <option key={irrigation} value={irrigation}>{irrigation}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📊 Previous Season Yield (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.previousYield}
-                      onChange={(e) => updateFormData('previousYield', e.target.value)}
-                      placeholder="e.g., 50 quintals/hectare, 2 tons/acre"
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-xl p-6 border-2 border-orange-100">
-                <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                  <Clock className="w-5 h-5 mr-2 text-orange-600" />
-                  🌟 Current Season & Weather Info
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-4 text-sm text-gray-700">
-                    <span className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-1 text-orange-600" />
-                      📅 Week {getWeekNumber(new Date())} of {new Date().getFullYear()}
-                    </span>
-                  </div>
-                  
-                  {weatherData && (
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div className="bg-white rounded-lg p-3 border border-orange-200">
-                        <div className="flex items-center text-sm">
-                          <Thermometer className="w-4 h-4 mr-1 text-red-500" />
-                          <span className="font-medium">{weatherData.temperature}°C</span>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-orange-200">
-                        <div className="flex items-center text-sm">
-                          <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
-                          <span className="font-medium">{weatherData.humidity}% Humidity</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-sm text-gray-700 flex items-start">
-                      <Sun className="w-4 h-4 mr-2 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      <span>🌤️ {getWeatherAlert()}</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center">
-            <Button
-              onClick={handleGenerateSchedule}
-              loading={loading}
-              disabled={!formData.lastActivity}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-12 py-4 text-xl font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Activity className="w-6 h-6 mr-3" />
-              🤖 Generate Smart Schedule
-            </Button>
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+              🗓️ AI-Powered Crop Scheduler
+            </h1>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Plan your farming activities with intelligent scheduling and weather-aware recommendations
+            </p>
           </div>
         </div>
 
-        {/* Scheduling History */}
-        {schedulingHistory.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-              <Clock className="w-5 h-5 mr-2 text-indigo-600" />
-              📚 Previous Schedules & History
-            </h3>
-            <div className="space-y-3">
-              {schedulingHistory.slice(-3).reverse().map((entry, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div>
-                    <span className="font-medium text-gray-900">{entry.crop}</span>
-                    <span className="text-gray-600 ml-2">→ {entry.activity}</span>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {new Date(entry.date).toLocaleDateString()}
-                  </div>
-                </div>
+        {/* Main Content Container - Centered */}
+        <div className="w-full max-w-6xl mx-auto">
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <div className="mb-8 space-y-3">
+              {alerts.map((alert, index) => (
+                <Alert key={index} type={alert.type}>
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  {alert.message}
+                </Alert>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Schedule Results */}
-        {scheduleResult && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          {/* Input Form */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
             <div className="flex items-center mb-6">
-              <CheckCircle className="w-6 h-6 mr-3 text-green-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Your Smart Farming Schedule</h2>
+              <Sprout className="w-6 h-6 mr-3 text-green-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Crop Activity Planning</h2>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              
-              {/* Current Status */}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-6">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-                    Current Activity Status
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Completed Activity:</span>
-                      <span className="font-semibold text-gray-900">{scheduleResult.currentActivity}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Status:</span>
-                      <span className={`font-semibold px-3 py-1 rounded-full text-sm ${
-                        scheduleResult.currentStatus === 'On Schedule' ? 'bg-green-100 text-green-800' :
-                        scheduleResult.currentStatus === 'Slightly Delayed' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {scheduleResult.currentStatus}
-                      </span>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🌾 Select Your Crop Type
+                  </label>
+                  <select
+                    value={formData.selectedCrop}
+                    onChange={(e) => updateFormData('selectedCrop', e.target.value)}
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
+                  >
+                    {cropOptions.map(crop => (
+                      <option key={crop} value={crop}>{crop}</option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <Sun className="w-5 h-5 mr-2 text-yellow-600" />
-                    Weather Considerations
-                  </h3>
-                  <p className="text-gray-700">{scheduleResult.weatherAlert}</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ✅ What activity did you just complete?
+                  </label>
+                  <select
+                    value={formData.lastActivity}
+                    onChange={(e) => updateFormData('lastActivity', e.target.value)}
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
+                  >
+                    <option value="">Select completed activity...</option>
+                    {(activityStages[formData.selectedCrop] || []).map(activity => (
+                      <option key={activity} value={activity}>{activity}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 On what date did you complete it?
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.activityDate}
+                    onChange={(e) => updateFormData('activityDate', e.target.value)}
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+                  />
                 </div>
               </div>
 
-              {/* Next Activity */}
               <div className="space-y-6">
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <PlayCircle className="w-5 h-5 mr-2 text-green-600" />
-                    Next Recommended Activity
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Activity:</span>
-                      <span className="font-bold text-green-700 text-lg">{scheduleResult.nextActivity}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Ideal Date:</span>
-                      <span className="font-semibold text-gray-900">{new Date(scheduleResult.nextActivityDate).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Days Until:</span>
-                      <span className={`font-semibold px-2 py-1 rounded ${
-                        scheduleResult.daysUntilNext <= 0 ? 'bg-red-100 text-red-800' :
-                        scheduleResult.daysUntilNext <= 7 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {scheduleResult.daysUntilNext > 0 ? `${scheduleResult.daysUntilNext} days` : 'Overdue'}
-                      </span>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📍 Farm Location (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.farmLocation}
+                    onChange={(e) => updateFormData('farmLocation', e.target.value)}
+                    placeholder="e.g., Ernakulam, Kerala"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+                  />
                 </div>
 
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <Leaf className="w-5 h-5 mr-2 text-purple-600" />
-                    Expert Recommendations
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🌾 Farm Size (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.farmSize}
+                    onChange={(e) => updateFormData('farmSize', e.target.value)}
+                    placeholder="e.g., 2 acres, 1 hectare"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+                  />
+                </div>
+
+                {/* Advanced Options Toggle */}
+                <div>
+                  <button
+                    onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                    className="flex items-center text-orange-600 hover:text-orange-700 font-medium"
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    {showAdvancedOptions ? '🔼 Hide Advanced Options' : '🔽 Show Advanced Options'}
+                  </button>
+                </div>
+
+                {/* Advanced Options */}
+                {showAdvancedOptions && (
+                  <div className="space-y-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-dashed border-blue-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        🏔️ Soil Type
+                      </label>
+                      <select
+                        value={formData.soilType}
+                        onChange={(e) => updateFormData('soilType', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                      >
+                        <option value="">Select soil type...</option>
+                        {soilTypes.map(soil => (
+                          <option key={soil} value={soil}>{soil}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        💧 Irrigation Type
+                      </label>
+                      <select
+                        value={formData.irrigationType}
+                        onChange={(e) => updateFormData('irrigationType', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                      >
+                        <option value="">Select irrigation method...</option>
+                        {irrigationTypes.map(irrigation => (
+                          <option key={irrigation} value={irrigation}>{irrigation}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        📊 Previous Season Yield (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.previousYield}
+                        onChange={(e) => updateFormData('previousYield', e.target.value)}
+                        placeholder="e.g., 50 quintals/hectare, 2 tons/acre"
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-xl p-6 border-2 border-orange-100">
+                  <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Clock className="w-5 h-5 mr-2 text-orange-600" />
+                    🌟 Current Season & Weather Info
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{scheduleResult.recommendations}</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-4 text-sm text-gray-700">
+                      <span className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1 text-orange-600" />
+                        📅 Week {getWeekNumber(new Date())} of {new Date().getFullYear()}
+                      </span>
+                    </div>
+                    
+                    {weatherData && (
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="bg-white rounded-lg p-3 border border-orange-200">
+                          <div className="flex items-center text-sm">
+                            <Thermometer className="w-4 h-4 mr-1 text-red-500" />
+                            <span className="font-medium">{weatherData.temperature}°C</span>
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-orange-200">
+                          <div className="flex items-center text-sm">
+                            <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
+                            <span className="font-medium">{weatherData.humidity}% Humidity</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-gray-700 flex items-start">
+                        <Sun className="w-4 h-4 mr-2 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <span>🌤️ {getWeatherAlert()}</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Action Button */}
             <div className="mt-8 text-center">
               <Button
-                onClick={handleAskAboutSchedule}
-                variant="outline"
-                className="border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white px-8 py-3 text-lg font-medium rounded-xl"
+                onClick={handleGenerateSchedule}
+                loading={loading}
+                disabled={!formData.lastActivity}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-12 py-4 text-xl font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <MessageCircle className="w-5 h-5 mr-2" />
-                💬 Get Detailed Guidance for {scheduleResult.nextActivity}
+                <Activity className="w-6 h-6 mr-3" />
+                🤖 Generate Smart Schedule
               </Button>
             </div>
           </div>
-        )}
+
+          {/* Scheduling History */}
+          {schedulingHistory.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-indigo-600" />
+                📚 Previous Schedules & History
+              </h3>
+              <div className="space-y-3">
+                {schedulingHistory.slice(-3).reverse().map((entry, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div>
+                      <span className="font-medium text-gray-900">{entry.crop}</span>
+                      <span className="text-gray-600 ml-2">→ {entry.activity}</span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(entry.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Results */}
+          {scheduleResult && (
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm bg-opacity-95">
+              <div className="flex items-center mb-6">
+                <CheckCircle className="w-6 h-6 mr-3 text-green-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Your Smart Farming Schedule</h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                {/* Current Status */}
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                      Current Activity Status
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Completed Activity:</span>
+                        <span className="font-semibold text-gray-900">{scheduleResult.currentActivity}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Status:</span>
+                        <span className={`font-semibold px-3 py-1 rounded-full text-sm ${
+                          scheduleResult.currentStatus === 'On Schedule' ? 'bg-green-100 text-green-800' :
+                          scheduleResult.currentStatus === 'Slightly Delayed' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {scheduleResult.currentStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <Sun className="w-5 h-5 mr-2 text-yellow-600" />
+                      Weather Considerations
+                    </h3>
+                    <p className="text-gray-700">{scheduleResult.weatherAlert}</p>
+                  </div>
+                </div>
+
+                {/* Next Activity */}
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <PlayCircle className="w-5 h-5 mr-2 text-green-600" />
+                      Next Recommended Activity
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Activity:</span>
+                        <span className="font-bold text-green-700 text-lg">{scheduleResult.nextActivity}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Ideal Date:</span>
+                        <span className="font-semibold text-gray-900">{new Date(scheduleResult.nextActivityDate).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Days Until:</span>
+                        <span className={`font-semibold px-2 py-1 rounded ${
+                          scheduleResult.daysUntilNext <= 0 ? 'bg-red-100 text-red-800' :
+                          scheduleResult.daysUntilNext <= 7 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {scheduleResult.daysUntilNext > 0 ? `${scheduleResult.daysUntilNext} days` : 'Overdue'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <Leaf className="w-5 h-5 mr-2 text-purple-600" />
+                      Expert Recommendations
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">{scheduleResult.recommendations}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="mt-8 text-center">
+                <Button
+                  onClick={handleAskAboutSchedule}
+                  variant="outline"
+                  className="border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white px-8 py-3 text-lg font-medium rounded-xl"
+                >
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  💬 Get Detailed Guidance for {scheduleResult.nextActivity}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
