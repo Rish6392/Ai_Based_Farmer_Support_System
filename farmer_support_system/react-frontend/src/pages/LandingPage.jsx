@@ -91,11 +91,34 @@ const LandingPage = () => {
 
   const handleExploreClick = () => {
     if (isAuthenticated) {
-      // Scroll to cards section
-      cardsRef.current?.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
+      // Custom smooth scroll to cards section with slower animation
+      if (cardsRef.current) {
+        const targetElement = cardsRef.current;
+        const targetPosition = targetElement.offsetTop - 60; // Offset for better visibility
+        const startPosition = window.pageYOffset;
+        const distance = targetPosition - startPosition;
+        const duration = 800; // 1.5 seconds for slower scroll
+        let startTime = null;
+
+        const easeInOutCubic = (t) => {
+          return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+        };
+
+        const animation = (currentTime) => {
+          if (startTime === null) startTime = currentTime;
+          const timeElapsed = currentTime - startTime;
+          const progress = Math.min(timeElapsed / duration, 1);
+          const ease = easeInOutCubic(progress);
+          
+          window.scrollTo(0, startPosition + distance * ease);
+          
+          if (progress < 1) {
+            requestAnimationFrame(animation);
+          }
+        };
+
+        requestAnimationFrame(animation);
+      }
     } else {
       navigate('/login');
     }
