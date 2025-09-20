@@ -6,6 +6,9 @@ import uuid, sqlite3, shutil, os
 import tempfile
 import json
 import traceback
+from typing import Optional
+import requests
+from datetime import date
 import speech_recognition as sr
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, BaseMessage, AIMessage, SystemMessage
@@ -25,10 +28,43 @@ from pinecone import Pinecone
 from models.prediction import PredictionPipeline
 import logging
 import sqlite3
+from datetime import datetime
+from twilio.rest import Client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
+
+
+
+
+def send_sms_notification(phone_number: str, message: str):
+    """Sends an SMS using Twilio."""
+    try:
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        twilio_phone_number = os.getenv("TWILIO_PHONE_NUMBER")
+
+        if not all([account_sid, auth_token, twilio_phone_number]):
+            logger.error("Twilio credentials are not fully configured in .env file.")
+            return
+
+        client = Client(account_sid, auth_token)
+
+        # Ensure the recipient number is in E.164 format (e.g., +919151429036)
+        # The number in your DB is already in this format, which is great.
+        formatted_phone_number = phone_number
+
+        message = client.messages.create(
+            body=message,
+            from_=twilio_phone_number,
+            to=formatted_phone_number
+        )
+        logger.info(f"SMS notification sent successfully to {formatted_phone_number}, SID: {message.sid}")
+    except Exception as e:
+        logger.error(f"Failed to send SMS notification to {phone_number}: {e}")
+        
+        
 
 # -------------------- RAG Setup --------------------
 try:
@@ -69,7 +105,7 @@ from langchain_groq import ChatGroq
 
 llm = ChatGroq(
     api_key=os.getenv("GROQ_API_KEY"),
-    model="groq/compound-mini",
+    model="openai/gpt-oss-120b",
     temperature=0.7,
 )
 
@@ -220,6 +256,21 @@ app.add_middleware(
 )
 
 # -------------------- Pydantic Models --------------------
+class MandiPrice(BaseModel):
+    market: str
+    commodity: str
+    min_price: float
+    max_price: float
+    modal_price: float
+
+class MandiPriceResponse(BaseModel):
+    data: List[MandiPrice]
+    message: str
+
+class NotificationRequest(BaseModel):
+    activity_name: str
+    notify_date: str # Expecting "YYYY-MM-DD" format
+    
 class Message(BaseModel):
     role: str
     content: str
@@ -302,9 +353,114 @@ def convert_messages(messages: List[Message]) -> List[BaseMessage]:
     return converted
 
 # -------------------- API Endpoints --------------------
+# In backend.py
+
+@app.get("/mandi-prices", response_model=MandiPriceResponse)
+def get_mandi_prices(arrival_date: date, district: str, commodity: str, market: Optional[str] = None):
+    """
+    Fetches crop prices for a given district, commodity, and optional market from data.gov.in.
+    """
+    api_key = os.getenv("DATA_GOV_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="DATA_GOV_API_KEY is not configured on the server.")
+
+    formatted_date = arrival_date.strftime("%d-%b-%Y")
+    api_url = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
+
+    params = {
+        "api-key": api_key,
+        "format": "json",
+        "offset": "0",
+        "limit": "100",
+        "filters[state.keyword]": "Kerala",
+        "filters[district]": district,
+        "filters[market]": market,
+        "filters[commodity]": commodity,
+        "filters[variety]": "Palayamthodan",
+        "filters[grade]": "Medium"
+    }
+    if market:
+        params["filters[market]"] = market.title()
+    # <<< ADD THIS LINE FOR DEBUGGING >>>
+    logger.info(f"Requesting Mandi data with params: {params}")
+
+    try:
+        response = requests.get(api_url, params=params, timeout=20)
+        response.raise_for_status()
+        api_data = response.json()
+
+        records = api_data.get("records", [])
+        if not records:
+            return MandiPriceResponse(data=[], message="No price data found for the selected crop, district, and date.")
+
+        price_data = []
+        for record in records:
+            try:
+                price_data.append(MandiPrice(
+                    market=record.get("market", "N/A").strip(),
+                    commodity=record.get("commodity", "N/A").strip(),
+                    min_price=float(record.get("min_price", 0.0)),
+                    max_price=float(record.get("max_price", 0.0)),
+                    modal_price=float(record.get("modal_price", 0.0))
+                ))
+            except (ValueError, TypeError):
+                logger.warning(f"Skipping record with invalid price data: {record}")
+                continue
+        
+        return MandiPriceResponse(data=price_data, message="Data fetched successfully.")
+
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP Error fetching mandi data: {e.response.text}")
+        # Pass the original error detail from the government portal if available
+        error_detail = f"Failed to fetch data from the government portal. Status: {e.response.status_code}"
+        raise HTTPException(status_code=500, detail=error_detail)
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request Error fetching mandi data: {e}")
+        raise HTTPException(status_code=503, detail="Could not connect to the government data portal. Please try again later.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while fetching mandi prices: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 
+@app.post("/schedule-notification")
+def schedule_notification(request: NotificationRequest):
+    """Schedules a one-time SMS notification for a user."""
+    try:
+        # For this implementation, we'll notify the most recently added user.
+        # In a multi-user system, you would link this to a logged-in user's ID.
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT phone_number FROM users ORDER BY id DESC LIMIT 1")
+            user_row = cursor.fetchone()
 
+        if not user_row:
+            raise HTTPException(status_code=404, detail="No registered user found in the database.")
+
+        user_phone_number = user_row[0]
+        notification_date = datetime.strptime(request.notify_date, "%Y-%m-%d")
+
+        # Create a user-friendly message for the SMS
+        reminder_message = (
+            f"Reminder from Digital Krishi Officer: "
+            f"It's time to start your next farming activity: '{request.activity_name}'. "
+            f"Scheduled to begin around {notification_date.strftime('%B %d, %Y')}."
+        )
+
+        # Schedule the job using the existing scheduler instance
+        scheduler.add_job(
+            send_sms_notification,
+            trigger='date',
+            run_date=notification_date,
+            args=[user_phone_number, reminder_message],
+            id=f"notification_{user_phone_number}_{uuid.uuid4()}", # Unique ID for the job
+            replace_existing=False
+        )
+        logger.info(f"Notification scheduled for {user_phone_number} on {request.notify_date}")
+        return {"status": "success", "message": f"Notification scheduled for {request.notify_date}."}
+
+    except Exception as e:
+        logger.error(f"Failed to schedule notification: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Optional: Add a testing endpoint to trigger the check manually

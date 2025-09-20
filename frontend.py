@@ -8,7 +8,6 @@ import pandas as pd
 import io  # <<< ADDED IMPORT
 import pickle
 # To be installed: pip install streamlit-webrtc st_audiorec pandas gtts
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import st_audiorec
 from datetime import datetime
 from gtts import gTTS
@@ -39,6 +38,46 @@ CROP_SCHEDULES = {
     ]
     # You can add more crops here by extracting data from the PDF
 }
+
+
+def schedule_notification(activity: str, date_str: str):
+    """Calls the backend to schedule an SMS notification."""
+    try:
+        payload = {"activity_name": activity, "notify_date": date_str}
+        response = requests.post(f"{API_URL}/schedule-notification", json=payload, timeout=15)
+        response.raise_for_status()
+        st.success(f"✅ Reminder set! You'll be notified on {date_str}.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to schedule notification: {e}")
+
+
+def fetch_mandi_prices(selected_date, district, crop, market=None) -> List[Dict]:
+    """Fetches mandi price data from our backend API."""
+    params = {
+        "arrival_date": selected_date.strftime("%Y-%m-%d"),
+        "district": district,
+        "commodity": crop
+    }
+    # <<< CHANGE START: Add market to params if it's provided >>>
+    if market:
+        params["market"] = market
+    # <<< CHANGE END >>>
+
+    try:
+        response = requests.get(f"{API_URL}/mandi-prices", params=params, timeout=20)
+        response.raise_for_status()
+        result = response.json()
+        st.info(result['message'])
+        return result.get('data', [])
+    except requests.exceptions.HTTPError as e:
+        st.error(f"Error: The server returned status code {e.response.status_code}.")
+        try:
+            st.error(f"Details: {e.response.json().get('detail')}")
+        except json.JSONDecodeError:
+            st.error(f"Details: {e.response.text}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to connect to the server: {e}")
+    return []
 
 def get_weather_data(lat: float, lon: float, api_key: str) -> Dict:
     """
@@ -100,14 +139,14 @@ def check_for_alerts(weather_data: Dict) -> List:
         return alerts
 
     # Rule 1: Heavy Rain Warning
-    if weather_data.get("total_rainfall", 0) > 50:
+    if weather_data.get("total_rainfall", 0) > 10:
         alerts.append((
             "warning",
             f"**Heavy Rain Warning:** {weather_data['total_rainfall']:.1f} mm of rain expected in the next 24 hours. Ensure proper drainage to avoid waterlogging."
         ))
 
     # Rule 2: Heat Stress Alert
-    if weather_data.get("max_temp", 0) > 38:
+    if weather_data.get("max_temp", 0) > 10:
         alerts.append((
             "error",
             f"**Heat Stress Alert:** Temperature may reach {weather_data['max_temp']:.1f}°C. Provide irrigation to crops to reduce heat stress."
@@ -278,6 +317,9 @@ if 'humidity_val' not in st.session_state:
 if 'rainfall_val' not in st.session_state:
     st.session_state.rainfall_val = 200.0
 
+if 'planner_result' not in st.session_state:
+    st.session_state.planner_result = None
+
 # -------------------- Sidebar Controls --------------------
 with st.sidebar:
     st.title("⚙️ Controls")
@@ -389,11 +431,12 @@ st.set_page_config(page_title="Digital Krishi Officer", page_icon="🌾", layout
 st.title("🌾 Digital Krishi Officer - കൃഷി സഹായി")
 st.caption("AI-powered farming assistant for Kerala farmers")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "💬 Ask Expert",
     "🌿 Crop Disease Detection",
     "📊 Crop Recommender",
-    "🗓️ Crop Schedule Planner"
+    "🗓️ Crop Schedule Planner",
+    "📈 Mandi Prices"
 ])
 
 # -------------------- Chatbot Tab --------------------
@@ -682,82 +725,191 @@ with tab4:
 
     with col2:
         st.write("### AI-Generated Next Steps")
+        # --- PART 1: This button now ONLY fetches and saves the result ---
         if st.button("🤖 Ask Assistant for Next Step"):
             if not last_activity:
                 st.warning("Please enter the activity you completed.")
             else:
                 with st.spinner("Analyzing your schedule..."):
-                    # 1. --- THE NEW, MORE PRECISE PROMPT ---
+                    st.session_state.planner_result = None # Clear previous results
                     prompt = f"""
-                    You are an agricultural schedule analyst. Your task is to analyze the "Crop Weather Calendar for Kerala" document to provide a clear status and identify the next farming activity.
+                    You are a highly precise agricultural schedule analyst. Your mission is to analyze the "Crop Weather Calendar for Kerala" document and respond ONLY with a valid JSON object. Do not include any conversational text or explanations.
 
-                    CONTEXT:
+                    First, analyze the schedule for the crop "{selected_crop_name}". Determine if it is a **linear schedule** (with clear, sequential steps like Paddy) or a **continuous schedule** (a perennial crop with overlapping activities like Coconut).
+
+                    Based on your analysis, you MUST use one of the following three JSON formats for your response.
+
+                    ---
+                    **FORMAT 1: Use this for LINEAR schedules.**
+                    If you find a clear, sequential next step for the activity "{last_activity}".
+
+                    {{
+                      "type": "linear_schedule",
+                      "status": "On Schedule / Early / Late",
+                      "next_activity": "Name of the next sequential stage",
+                      "advice": "Provide specific, actionable advice for this next activity.",
+                      "next_date": "YYYY-MM-DD"
+                    }}
+
+                    ---
+                    **FORMAT 2: Use this for CONTINUOUS schedules.**
+                    If you find the crop "{selected_crop_name}", but it does not have a clear sequential step after "{last_activity}" because it's a perennial crop.
+
+                    {{
+                      "type": "continuous_schedule",
+                      "advice": "Provide general farm management advice relevant to the '{last_activity}' stage for this crop. For example: 'After flowering, focus on nutrient management and irrigation for coconut trees.'",
+                      "details": "A single 'next step' is not applicable for this continuous-cycle crop."
+                    }}
+
+                    ---
+                    **FORMAT 3: Use this if you CANNOT FIND the crop.**
+                    If the document does not contain any information about the crop "{selected_crop_name}".
+
+                    {{
+                      "type": "error",
+                      "message": "Could not find any information for '{selected_crop_name}' in the knowledge base."
+                    }}
+
+                    ---
+                    **User's Request:**
                     - Crop: "{selected_crop_name}"
                     - Activity Just Completed: "{last_activity}"
                     - Date of Completion: "{activity_date.strftime('%Y-%m-%d')}"
-
-                    INSTRUCTIONS:
-                    1.  **Find the Schedule:** Locate the specific calendar page for the "{selected_crop_name}".
-                    2.  **Analyze the Main Timeline:** Focus *only* on the main timeline diagram that maps crop stages (Sowing, Transplanting, Veg. Growth, etc.) to "Standard weeks".
-                    3.  **Determine Status of Completed Activity:**
-                        a. From the timeline, find the standard week range for the "{last_activity}".
-                        b. Determine the week number of the user's "{activity_date.strftime('%Y-%m-%d')}".
-                        c. Compare the user's week to the standard range. The status must be "On Schedule" if the user's week is within the range, "Early" if before the range, and "Late" if after the range.
-                    4.  **Identify the Correct Next Activity:**
-                        a. In the main timeline diagram, find the stage that *immediately follows* "{last_activity}". This is the `next_activity`. Do not invent stages like 'Nursery' if they are not in the main sequence.
-                    5.  **Calculate Timing for Next Activity:**
-                        a. Find the standard start week for the `next_activity`.
-                        b. Calculate the estimated start date for this next activity based on its standard week in the current year.
-
-                    OUTPUT FORMAT:
-                    Respond ONLY with a valid JSON object in this exact format. Do not add any explanation.
-                    {{
-                      "completed_activity_status": "On Schedule / Early / Late",
-                      "next_activity": "Name of the next stage from the timeline",
-                      "advice": "A short, helpful sentence based on the status and next step.",
-                      "next_activity_start_date": "YYYY-MM-DD"
-                    }}
                     """
 
-                    # 2. --- SEND TO BACKEND (Unchanged) ---
                     ai_response_list = send_message(
                         thread_id=str(uuid.uuid4()),
                         messages=[{"role": "user", "content": prompt}],
                         language=language
                     )
 
-                    # 3. --- NEW PARSING & DISPLAY LOGIC ---
                     if ai_response_list and 'content' in ai_response_list[0]:
                         try:
                             response_text = ai_response_list[0]['content']
                             json_start = response_text.find('{')
                             json_end = response_text.rfind('}') + 1
                             json_string = response_text[json_start:json_end]
-                            data = json.loads(json_string)
-
-                            status = data.get("completed_activity_status", "N/A")
-                            advice = data.get("advice", "")
-                            next_activity = data.get("next_activity", "N/A")
-                            next_date_str = data.get("next_activity_start_date")
-
-                            # Display status with a color-coded message
-                            if status == "Late":
-                                st.error(f"**Status for '{last_activity.title()}':** {status}")
-                            elif status == "Early":
-                                st.success(f"**Status for '{last_activity.title()}':** {status}")
-                            else:
-                                st.info(f"**Status for '{last_activity.title()}':** {status}")
-
-                            st.metric(label="Next Activity to Perform", value=next_activity)
-                            
-                            if next_date_str:
-                                next_date_obj = datetime.strptime(next_date_str, "%Y-%m-%d")
-                                st.metric(label="Ideal Start Date for Next Activity", value=next_date_obj.strftime("%B %d, %Y"))
-                            
-                            st.write(f"**Assistant's Advice:** {advice}")
-
-                        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
-                            st.error("The AI assistant returned an unexpected format. Please try again.")
-                            st.code(ai_response_list[0]['content'])
+                            st.session_state.planner_result = json.loads(json_string)
+                        except (json.JSONDecodeError, ValueError):
+                            st.session_state.planner_result = {"type": "error", "message": "The AI assistant returned an invalid format. Please try again."}
                     else:
-                        st.error("Failed to get a response from the AI assistant.")
+                        st.session_state.planner_result = {"type": "error", "message": "Failed to get a response from the AI assistant."}
+
+    # --- PART 2: This block now handles ALL displaying by reading from session_state ---
+    if st.session_state.planner_result:
+        data = st.session_state.planner_result
+        response_type = data.get("type")
+
+        if response_type == "linear_schedule":
+            status = data.get("status", "N/A")
+            next_activity = data.get("next_activity", "N/A")
+            next_date_str = data.get("next_date")
+            advice = data.get("advice", "")
+
+            st.info(f"**Status for '{last_activity.title()}':** {status}")
+            st.metric(label="Next Activity to Perform", value=next_activity)
+            if next_date_str:
+                next_date_obj = datetime.strptime(next_date_str, "%Y-%m-%d")
+                st.metric(label="Ideal Start Date", value=next_date_obj.strftime("%B %d, %Y"))
+            st.write(f"**Assistant's Advice:** {advice}")
+            st.divider()
+
+            if next_date_str and next_activity not in ["N/A", ""]:
+                if st.button("🔔 Notify Me on this Date", use_container_width=True, type="primary"):
+                    schedule_notification(activity=next_activity, date_str=next_date_str)
+
+        elif response_type == "continuous_schedule":
+            advice = data.get("advice", "No specific advice available.")
+            details = data.get("details", "")
+            st.success(f"**General Advice for {selected_crop_name}:**")
+            st.write(advice)
+            st.caption(details)
+
+        elif response_type == "error":
+            st.error(data.get("message", "An unknown error occurred."))
+            
+        else:
+            st.warning("Received an unusual response from the assistant.")
+            st.json(data)
+
+
+
+
+with tab5:
+    st.header("📈 Real-Time Mandi Price Lookup")
+    st.info("Select your district, crop, and date to get the latest market prices from Agmarknet.")
+
+    kerala_crops = [
+        "Paddy", "Coconut", "Pepper", "Banana", "Rubber", "Cashew", "Tapioca",
+        "Arecanut", "Cardamom", "Ginger", "Turmeric", "Coffee"
+    ]
+
+    # We will use two columns for a cleaner layout
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_district = st.selectbox(
+            "1. Select Your District",
+            options=list(KERALA_DISTRICTS),
+            key="mandi_district"
+        )
+        selected_crop = st.selectbox(
+            "2. Select Your Crop",
+            options=kerala_crops,
+            key="mandi_crop"
+        )
+    with col2:
+        selected_date = st.date_input("3. Select Date", value=datetime.today())
+        # <<< CHANGE START: Add new optional input for Market >>>
+        selected_market = st.text_input("4. Enter Market Name (Optional)",
+                                        placeholder="e.g., Koduvayoor")
+        # <<< CHANGE END >>>
+
+    if st.button("🔍 Fetch Market Prices", use_container_width=True, type="primary"):
+        if not selected_crop:
+            st.warning("Please select a crop.")
+        else:
+            with st.spinner(f"Fetching prices for {selected_crop}..."):
+                # <<< CHANGE START: Pass the market to the function >>>
+                price_data = fetch_mandi_prices(selected_date,
+                                                selected_district,
+                                                selected_crop,
+                                                selected_market)
+                if price_data:
+                    # Convert data to a pandas DataFrame for easier handling
+                    df = pd.DataFrame(price_data)
+                    st.session_state.mandi_data = df # Save to session state
+                else:
+                    st.session_state.mandi_data = pd.DataFrame() # Clear old data if none found
+
+    # Display the results if they exist in the session state
+    if 'mandi_data' in st.session_state and not st.session_state.mandi_data.empty:
+        df = st.session_state.mandi_data
+        st.divider()
+        st.subheader(f"Prices for '{selected_crop}' in {selected_district} on {selected_date.strftime('%d %B, %Y')}")
+
+        # --- Display Key Metrics ---
+        avg_modal_price = df['modal_price'].mean()
+        max_price = df['max_price'].max()
+        market_with_max_price = df.loc[df['max_price'].idxmax()]['market']
+
+        metric_col1, metric_col2 = st.columns(2)
+        metric_col1.metric(
+            label="Average Modal Price (per Quintal)",
+            value=f"₹ {avg_modal_price:,.2f}"
+        )
+        metric_col2.metric(
+            label="Highest Price Found",
+            value=f"₹ {max_price:,.2f}",
+            help=f"In {market_with_max_price} market"
+        )
+
+        # --- Display Data Table ---
+        st.dataframe(
+            df[['market', 'min_price', 'max_price', 'modal_price']],
+            use_container_width=True
+        )
+
+        # --- Display Bar Chart ---
+        st.subheader("Price Comparison Across Markets")
+        chart_data = df.set_index('market')[['min_price', 'max_price', 'modal_price']]
+        st.bar_chart(chart_data)                    
