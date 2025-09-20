@@ -44,4 +44,3 @@ easyocr
 pytesseract
 Pillow
 scikit-learn
-pyaudio 
