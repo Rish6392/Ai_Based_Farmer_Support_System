@@ -25,7 +25,7 @@ const Sidebar = ({
   currentThreadId,
   onThreadSelect
 }) => {
-  const [activeSection, setActiveSection] = useState('chat');
+  const [activeSection, setActiveSection] = useState('conversations');
 
   const getStatusColor = () => {
     const { total_documents, processed_chunks } = knowledgeBaseStatus;
@@ -88,18 +88,18 @@ const Sidebar = ({
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-2 space-y-1">
-          {/* Chat Section */}
+          {/* Conversations Section */}
           <button
-            onClick={() => setActiveSection('chat')}
+            onClick={() => setActiveSection('conversations')}
             className={cn(
               "flex items-center space-x-3 w-full px-3 py-2 rounded-lg transition-colors text-sm",
-              activeSection === 'chat' 
+              activeSection === 'conversations' 
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
                 : "text-gray-600 hover:bg-gray-50"
             )}
           >
             <MessageSquare className="w-4 h-4" />
-            {!isCollapsed && <span>Quick Questions</span>}
+            {!isCollapsed && <span>My Conversations</span>}
           </button>
 
           {/* Settings Section */}
@@ -131,39 +131,54 @@ const Sidebar = ({
             <Database className="w-4 h-4" />
             {!isCollapsed && <span>System Status</span>}
           </button>
-
-          {/* Conversations Section */}
-          <button
-            onClick={() => setActiveSection('conversations')}
-            className={cn(
-              "flex items-center space-x-3 w-full px-3 py-2 rounded-lg transition-colors text-sm",
-              activeSection === 'conversations' 
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
-                : "text-gray-600 hover:bg-gray-50"
-            )}
-          >
-            <MessageSquare className="w-4 h-4" />
-            {!isCollapsed && <span>My Conversations</span>}
-          </button>
         </div>
 
         {/* Content Area */}
         {!isCollapsed && (
           <div className="p-4 space-y-6">
-            {/* Quick Questions */}
-            {activeSection === 'chat' && (
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3 text-sm">Quick Questions</h3>
-                <div className="space-y-2">
-                  {quickQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => onQuickQuestionSelect(question)}
-                      className="w-full text-left p-3 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200 border border-gray-200 hover:border-emerald-300 hover:shadow-sm"
-                    >
-                      {question}
-                    </button>
-                  ))}
+            {/* My Conversations */}
+            {activeSection === 'conversations' && (
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 mb-3 text-sm">My Conversations</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {isLoading ? (
+                    // Loading state
+                    <div className="text-center text-gray-500 py-8">
+                      <div className="flex flex-col items-center space-y-3">
+                        <div className="w-6 h-6 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin"></div>
+                        <p className="text-xs">Loading conversations...</p>
+                      </div>
+                    </div>
+                  ) : threads.length === 0 ? (
+                    <div className="text-center text-gray-500 py-4">
+                      <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-300" />
+                      <p className="text-xs">No conversations yet</p>
+                      <p className="text-xs text-gray-400">Start a new chat to begin</p>
+                    </div>
+                  ) : (
+                    threads.slice(0, 10).map((threadId, index) => {
+                      const shortId = threadId.slice(0, 8);
+                      const isActive = threadId === currentThreadId;
+                      
+                      return (
+                        <button
+                          key={threadId}
+                          onClick={() => onThreadSelect(threadId)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 rounded-lg text-xs transition-all duration-200 border",
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-medium"
+                              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border-gray-200 hover:border-emerald-300 hover:shadow-sm"
+                          )}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <MessageSquare className="w-3 h-3" />
+                            <span>💬 {shortId}...</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -221,45 +236,6 @@ const Sidebar = ({
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* My Conversations */}
-            {activeSection === 'conversations' && (
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 mb-3 text-sm">My Conversations</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {threads.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">
-                      <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-300" />
-                      <p className="text-xs">No conversations yet</p>
-                      <p className="text-xs text-gray-400">Start a new chat to begin</p>
-                    </div>
-                  ) : (
-                    threads.slice(0, 10).map((threadId, index) => {
-                      const shortId = threadId.slice(0, 8);
-                      const isActive = threadId === currentThreadId;
-                      
-                      return (
-                        <button
-                          key={threadId}
-                          onClick={() => onThreadSelect(threadId)}
-                          className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-xs transition-all duration-200 border",
-                            isActive
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-medium"
-                              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border-gray-200 hover:border-emerald-300 hover:shadow-sm"
-                          )}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <MessageSquare className="w-3 h-3" />
-                            <span>💬 {shortId}...</span>
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
                 </div>
               </div>
             )}

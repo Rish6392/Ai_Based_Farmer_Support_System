@@ -274,17 +274,20 @@ const LocationPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white shadow-lg border-b">
-        <div className="container mx-auto px-4 py-4">
+      <div className="bg-green-400 border-2 border-green-600 rounded-full p-1 h-fit w-fit ml-5 mt-5">
+        <div className="container mx-auto px-3 py-3">
           <div className="flex items-center justify-between">
-            <Button 
+            {/* <Button 
               onClick={() => navigate('/')} 
-              variant="outline" 
+              // variant="outline" 
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Home</span>
-            </Button>
+              
+            </Button> */}
+            <button onClick={() => navigate('/')} >
+              <ArrowLeft className='w-4 h-4'/>
+            </button>
           </div>
         </div>
       </div>

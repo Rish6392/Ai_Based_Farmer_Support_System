@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, Database, Activity, Upload, TrendingUp, BarChart3, Zap } from 'lucide-react';
-import { Card, Button, Alert } from '../components';
+import { Card, Button, Alert, ProactiveAlerts } from '../components';
 import { useDocuments } from '../context';
 
 const DashboardPage = () => {
@@ -160,6 +160,15 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Proactive Weather Alerts */}
+      <div className="space-y-4">
+        <ProactiveAlerts 
+          showDistrictSelector={true}
+          refreshInterval={10 * 60 * 1000} // 10 minutes
+          className="shadow-md"
+        />
       </div>
 
       {/* Enhanced System Status */}

@@ -15,3 +15,4 @@ export { default as ChatInput } from './ChatInput';
 export { default as LoadingIndicator } from './LoadingIndicator';
 export { default as VoiceRecorder } from './VoiceRecorder';
 export { default as GoogleTranslate } from './GoogleTranslate';
+export { default as ProactiveAlerts } from './ProactiveAlerts';

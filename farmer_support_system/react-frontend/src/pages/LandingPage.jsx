@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Mic, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MapPin, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
+import { ProactiveAlerts } from '../components';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -159,36 +160,36 @@ const LandingPage = () => {
   const cards = [
     {
       id: 1,
-      title: "Location",
+      title: "AI Chat Assistant",
+      icon: MessageCircle,
+      description: "Chat with our AI farming expert for instant advice and voice support",
+      color: "bg-blue-100 text-blue-600",
+      hoverColor: "hover:bg-blue-200",
+      route: "/chat"
+    },
+    {
+      id: 2,
+      title: "Crop Recommendations",
       icon: MapPin,
-      description: "Find farming locations and weather data",
+      description: "Get instant crop suggestions based on your soil type and location",
       color: "bg-green-100 text-green-600",
       hoverColor: "hover:bg-green-200",
       route: "/location"
     },
     {
-      id: 2,
-      title: "Speak",
-      icon: Mic,
-      description: "Voice-powered farming assistance",
-      color: "bg-blue-100 text-blue-600",
-      hoverColor: "hover:bg-blue-200",
-      route: "/voice"
-    },
-    {
       id: 3,
-      title: "Image",
+      title: "Disease Detection",
       icon: ImageIcon,
-      description: "AI-powered crop disease detection",
+      description: "Scan crop images to instantly identify diseases and get treatment advice",
       color: "bg-purple-100 text-purple-600",
       hoverColor: "hover:bg-purple-200",
       route: "/disease-prediction"
     },
     {
       id: 4,
-      title: "Crop Scheduler",
+      title: "Smart Scheduling",
       icon: Calendar,
-      description: "AI-powered crop activity planning and scheduling",
+      description: "Plan your farming activities with AI-powered crop scheduling",
       color: "bg-orange-100 text-orange-600",
       hoverColor: "hover:bg-orange-200",
       route: "/crop-scheduler"

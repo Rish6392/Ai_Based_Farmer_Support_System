@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { VOICE_LANGUAGES, LANGUAGES } from '../utils/constants';
 import { chatService } from '../services';
 import { Sidebar, ChatMessage, ChatInput, LoadingIndicator } from '../components';
 import { useChat } from '../context/ChatContext';
-import { cn } from '../utils/cn';
 
 const ChatbotPage = () => {
   const location = useLocation();

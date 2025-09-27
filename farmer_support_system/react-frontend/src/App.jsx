@@ -14,7 +14,8 @@ import {
   UserRegistrationPage,
   LocationPage,
   CropSchedulerPage,
-  VoicePage
+  VoicePage,
+  AlertsPage
 } from './pages';
 import { ChatProvider, DocumentProvider, AuthProvider } from './context';
 import { withOTPSession } from './components/ProtectedRoute';
@@ -85,6 +86,7 @@ function App() {
               />
               <Route path="location" element={<LocationPage />} />
               <Route path="crop-scheduler" element={<CropSchedulerPage />} />
+              <Route path="alerts" element={<AlertsPage />} />
               <Route path="contact" element={<ContactPage />} />
               <Route path="faq" element={<FaqPage />} />
               <Route path="*" element={<NotFoundPage />} />

@@ -41,6 +41,10 @@ const Navbar = () => {
       requireAuth: true
     },
     { 
+      path: '/alerts', 
+      label: 'Weather Alerts'
+    },
+    { 
       path: '/faq', 
       label: 'FAQ'
     },

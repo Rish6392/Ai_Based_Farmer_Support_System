@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 // import icons from '../../public/icon.png';
 
 const InstallPrompt = ({
-  title = "Install KrisiSeva App",
-  description = "Install KrisiSeva App on your device to get a better experience.",
+  title = "Install KisanSeva App",
+  description = "Install KisanSeva App on your device to get a better experience.",
   buttonLabel = "Install",
   sessionKey = "installPromptShown",
   forceShow = false,
