@@ -28,7 +28,7 @@ const Button = ({
   };
   
   const classes = `${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`;
-  
+  console.log("Hi")
   return (
     <button 
       className={classes} 
