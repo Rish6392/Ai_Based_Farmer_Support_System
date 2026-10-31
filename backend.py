@@ -461,6 +461,8 @@ def reindex_documents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# AI-Based Farmer Support System backend service
 if __name__ == "__main__":
     import uvicorn
+    print("Starting AI-Based Farmer Support System backend service...")
     uvicorn.run(app, host="0.0.0.0", port=8000)
