@@ -5,14 +5,26 @@ import os
 import uuid
 import json
 
+# External packages used by this Streamlit application.
+# Install the required dependencies with:
+# pip install streamlit requests streamlit-webrtc st-audiorec
+# (The WebRTC imports are currently not used directly in this file.)
+# To be installed: pip install streamlit-webrtc
 # To be installed: pip install streamlit-webrtc
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import st_audiorec
 
 # -------------------- Configuration --------------------
+# Base URL of the backend API. The frontend sends HTTP requests to this server.
+# Change this value if the backend runs on another host or port.
 API_URL = "http://localhost:8000"
 
 # -------------------- Utility Functions --------------------
+# These helper functions keep API communication separate from UI code.
+# Each function handles request failures so the Streamlit app can show an error
+# instead of crashing when the backend is unavailable.
+# Cache the thread list to avoid requesting it from the backend on every rerun.
+# Streamlit reruns the script after most user interactions.
 @st.cache_data(show_spinner=False)
 def get_all_threads() -> List[str]:
     try:
@@ -72,6 +84,8 @@ def send_message(thread_id: str, messages: List[Dict], language: str = "English"
         return []
 
 # -------------------- Session State Initialization --------------------
+# Session state preserves values between Streamlit reruns for the same user session.
+# Initialize each key only once so existing conversation data is not overwritten.
 if 'thread_id' not in st.session_state:
     st.session_state.thread_id = create_new_thread() or str(uuid.uuid4())
 
@@ -89,6 +103,8 @@ if 'last_transcription' not in st.session_state:
     st.session_state.last_transcription = ""
 
 # -------------------- Main UI --------------------
+# Configure the browser tab and display the application heading.
+# Streamlit page configuration should be the first Streamlit command in the app.
 st.set_page_config(page_title="Digital Krishi Officer", page_icon="🌾", layout="wide")
 st.title("🌾 Digital Krishi Officer - കൃഷി സഹായി")
 st.caption("AI-powered farming assistant for Kerala farmers")
@@ -216,6 +232,8 @@ with tab1:
                     st.session_state.message_history.append(ai_msg)
 
 # -------------------- Disease Prediction Tab --------------------
+# This tab accepts an image, sends it to the prediction API, and displays
+# the predicted class together with any confidence/probability information.
 with tab2:
     st.header("🔬 Disease Prediction from Medical Images")
     st.info("Upload a medical image for AI-powered disease prediction")
@@ -334,6 +352,8 @@ with tab2:
             st.info("Upload and analyze an image to see results here")
 
 # Footer
+# Display basic project/technology information in the Streamlit sidebar.
+
 st.sidebar.divider()
 st.sidebar.caption("Built with LangGraph, RAG, and Streamlit")
 st.sidebar.caption("© 2024 Medical Assistant")
